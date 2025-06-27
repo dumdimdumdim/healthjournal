@@ -14,10 +14,10 @@
             position: relative;
             height: 300px;
             width: 100%;
-            padding: 10px;
         }
         .chart-container canvas {
             max-height: 280px !important;
+            max-width: 100% !important;
         }
     </style>
 </head>
@@ -27,7 +27,6 @@
         const { useState, useEffect, useRef } = React;
 
         const HealthTracker = () => {
-            // Профиль пользователя (тестовые данные)
             const userProfile = {
                 weight: 98,
                 height: 178,
@@ -36,7 +35,6 @@
                 name: 'Пользователь'
             };
 
-            // Рассчет нормы калорий
             const calculateCalorieNorm = () => {
                 const bmr = 88.362 + (13.397 * userProfile.weight) + (4.799 * userProfile.height) - (5.677 * userProfile.age);
                 return Math.round(bmr * 1.55);
@@ -44,25 +42,21 @@
 
             const calorieNorm = calculateCalorieNorm();
 
-            // Состояние приложения
             const [dayText, setDayText] = useState('');
             const [isAnalyzing, setIsAnalyzing] = useState(false);
             const [healthData, setHealthData] = useState([]);
             const [currentSummary, setCurrentSummary] = useState('');
             const [weeklyAdvice, setWeeklyAdvice] = useState('');
 
-            // Refs для графиков
             const healthChartRef = useRef(null);
             const activityChartRef = useRef(null);
             const nutritionChartRef = useRef(null);
 
-            // Инициализация с тестовыми данными
             useEffect(() => {
                 const mockData = generateMockData();
                 setHealthData(mockData);
             }, []);
 
-            // Генерация тестовых данных
             const generateMockData = () => {
                 const data = [];
                 const today = new Date();
@@ -89,7 +83,6 @@
                 return data;
             };
 
-            // Анализ текста через Claude (с fallback)
             const analyzeDay = async () => {
                 if (!dayText.trim()) {
                     alert('Пожалуйста, расскажите о своем дне');
@@ -99,15 +92,12 @@
                 setIsAnalyzing(true);
 
                 try {
-                    // Проверяем доступность Claude API
-                    if (!window.claude || typeof window.claude.complete !== 'function') {
-                        // Fallback - используем простой анализ
-                        const mockAnalysis = createMockAnalysis(dayText);
-                        addAnalysisResult(mockAnalysis);
-                        return;
-                    }
-
-                    const prompt = `Анализ дня. Рассказ: "${dayText}". Верни JSON:
+                    let analysis;
+                    
+                    // Пробуем Claude API
+                    if (window.claude && typeof window.claude.complete === 'function') {
+                        try {
+                            const prompt = `Анализ дня. Рассказ: "${dayText}". Верни ТОЛЬКО JSON:
 {
   "sleep_quality": число от -2 до 2,
   "mood": число от -2 до 2,
@@ -122,33 +112,34 @@
   "weekly_advice": "совет"
 }`;
 
-                    const response = await window.claude.complete(prompt);
-                    console.log('Claude response:', response);
-                    
-                    // Парсим ответ
-                    let analysis;
-                    try {
-                        let cleanResponse = response.trim();
-                        if (cleanResponse.includes('```json')) {
-                            cleanResponse = cleanResponse.split('```json')[1].split('```')[0].trim();
-                        } else if (cleanResponse.includes('```')) {
-                            cleanResponse = cleanResponse.split('```')[1].split('```')[0].trim();
+                            const response = await window.claude.complete(prompt);
+                            
+                            let cleanResponse = response.trim();
+                            if (cleanResponse.includes('```json')) {
+                                cleanResponse = cleanResponse.split('```json')[1].split('```')[0].trim();
+                            } else if (cleanResponse.includes('```')) {
+                                cleanResponse = cleanResponse.split('```')[1].split('```')[0].trim();
+                            }
+                            const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+                            if (jsonMatch) {
+                                cleanResponse = jsonMatch[0];
+                            }
+                            
+                            analysis = JSON.parse(cleanResponse);
+                            console.log('Claude анализ успешен:', analysis);
+                        } catch (claudeError) {
+                            console.log('Claude ошибка, используем fallback:', claudeError);
+                            analysis = createMockAnalysis(dayText);
                         }
-                        const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
-                        if (jsonMatch) {
-                            cleanResponse = jsonMatch[0];
-                        }
-                        analysis = JSON.parse(cleanResponse);
-                    } catch (parseError) {
-                        console.log('Parse error, using mock analysis');
+                    } else {
+                        console.log('Claude API недоступен, используем fallback');
                         analysis = createMockAnalysis(dayText);
                     }
                     
                     addAnalysisResult(analysis);
 
                 } catch (error) {
-                    console.error('Analysis error:', error);
-                    // Fallback к mock анализу
+                    console.error('Общая ошибка анализа:', error);
                     const mockAnalysis = createMockAnalysis(dayText);
                     addAnalysisResult(mockAnalysis);
                 } finally {
@@ -156,11 +147,9 @@
                 }
             };
 
-            // Создание mock анализа на основе ключевых слов
             const createMockAnalysis = (text) => {
                 const textLower = text.toLowerCase();
                 
-                // Простой анализ по ключевым словам
                 let sleep_quality = 0;
                 if (textLower.includes('отлично') || textLower.includes('хорошо спал') || textLower.includes('8 часов')) sleep_quality = 1;
                 if (textLower.includes('плохо спал') || textLower.includes('не спал') || textLower.includes('5 часов')) sleep_quality = -1;
@@ -178,8 +167,7 @@
                 if (textLower.includes('салат') || textLower.includes('овощи') || textLower.includes('брокколи')) vegetables_percent = 60;
                 
                 let coffee_cups = 0;
-                const coffeeMatches = textLower.match(/(\d+)\s*чашк/g);
-                if (coffeeMatches) coffee_cups = parseInt(coffeeMatches[0]) || 1;
+                if (textLower.includes('2 чашки кофе') || textLower.includes('две чашки')) coffee_cups = 2;
                 else if (textLower.includes('кофе')) coffee_cups = 1;
                 
                 let alcohol_units = 0;
@@ -195,12 +183,11 @@
                     vegetables_percent,
                     coffee_cups,
                     alcohol_units,
-                    summary: "Анализ на основе ключевых слов",
-                    weekly_advice: "Продолжайте вести здоровый образ жизни"
+                    summary: "Анализ на основе ключевых слов из вашего рассказа",
+                    weekly_advice: "Продолжайте вести здоровый образ жизни, больше овощей и регулярные тренировки"
                 };
             };
 
-            // Добавление результата анализа
             const addAnalysisResult = (analysis) => {
                 const validatedAnalysis = {
                     sleep_quality: Math.max(-2, Math.min(2, parseInt(analysis.sleep_quality) || 0)),
@@ -226,10 +213,9 @@
                 setCurrentSummary(validatedAnalysis.summary);
                 setWeeklyAdvice(validatedAnalysis.weekly_advice);
                 setDayText('');
-                alert('✅ Анализ завершен!');
+                alert('✅ Анализ завершен успешно!');
             };
 
-            // Построение графиков
             useEffect(() => {
                 if (healthData.length > 0) {
                     setTimeout(() => {
@@ -292,30 +278,12 @@
                                     color: function(context) {
                                         return context.tick.value === 0 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';
                                     }
-                                },
-                                ticks: {
-                                    font: {
-                                        size: 11
-                                    }
-                                }
-                            },
-                            x: {
-                                ticks: {
-                                    font: {
-                                        size: 11
-                                    }
                                 }
                             }
                         },
                         plugins: {
                             legend: {
-                                position: 'top',
-                                labels: {
-                                    usePointStyle: true,
-                                    font: {
-                                        size: 11
-                                    }
-                                }
+                                position: 'top'
                             }
                         }
                     }
@@ -345,9 +313,7 @@
                                 if (d.physical_activity <= 2) return 'rgba(59, 130, 246, 0.8)';
                                 if (d.physical_activity <= 3) return 'rgba(245, 158, 11, 0.8)';
                                 return 'rgba(239, 68, 68, 0.8)';
-                            }),
-                            borderColor: 'rgba(0, 0, 0, 0.1)',
-                            borderWidth: 1
+                            })
                         }]
                     },
                     options: {
@@ -359,19 +325,9 @@
                                 max: 4,
                                 ticks: {
                                     stepSize: 1,
-                                    font: {
-                                        size: 11
-                                    },
                                     callback: function(value) {
                                         const labels = ['Нет', 'Слабая', 'Нормальная', 'Сильная', 'Экстремальная'];
                                         return labels[value] || value;
-                                    }
-                                }
-                            },
-                            x: {
-                                ticks: {
-                                    font: {
-                                        size: 11
                                     }
                                 }
                             }
@@ -395,19 +351,10 @@
 
                 const labels = healthData.map(d => new Date(d.date).toLocaleDateString('ru-RU', {month: 'short', day: 'numeric'}));
                 
-                // Создаем данные для свечного графика
-                const candleData = healthData.map(d => {
-                    const color = d.vegetables_percent >= 50 ? 'rgba(34, 197, 94, 0.8)' : 
-                                  d.vegetables_percent >= 30 ? 'rgba(245, 158, 11, 0.8)' : 
-                                  'rgba(239, 68, 68, 0.8)';
-                    return {
-                        min: d.calories_min,
-                        max: d.calories_max,
-                        color: color,
-                        vegetables: d.vegetables_percent
-                    };
-                });
-
+                // Создаем эмуляцию свечей через stacked bar chart
+                const minValues = healthData.map(d => d.calories_min);
+                const rangeValues = healthData.map(d => d.calories_max - d.calories_min);
+                
                 window.nutritionChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
@@ -420,20 +367,35 @@
                                 type: 'line',
                                 borderColor: '#6b7280',
                                 borderDash: [8, 4],
-                                borderWidth: 2,
+                                borderWidth: 3,
                                 fill: false,
                                 pointRadius: 0,
-                                pointHoverRadius: 0,
                                 order: 0
                             },
-                            // "Свечи" - столбцы от min до max
+                            // Нижняя часть свечи (минимум) - прозрачная
+                            {
+                                label: 'Min калорий',
+                                data: minValues,
+                                backgroundColor: 'rgba(0,0,0,0)',
+                                borderColor: 'rgba(0,0,0,0)',
+                                order: 2
+                            },
+                            // Верхняя часть свечи (диапазон)
                             {
                                 label: 'Диапазон калорий',
-                                data: candleData.map(d => d.max),
-                                backgroundColor: candleData.map(d => d.color),
-                                borderColor: candleData.map(d => d.color.replace('0.8', '1')),
+                                data: rangeValues,
+                                backgroundColor: healthData.map(d => {
+                                    if (d.vegetables_percent >= 50) return 'rgba(34, 197, 94, 0.7)';
+                                    if (d.vegetables_percent >= 30) return 'rgba(245, 158, 11, 0.7)';
+                                    return 'rgba(239, 68, 68, 0.7)';
+                                }),
+                                borderColor: healthData.map(d => {
+                                    if (d.vegetables_percent >= 50) return 'rgba(34, 197, 94, 1)';
+                                    if (d.vegetables_percent >= 30) return 'rgba(245, 158, 11, 1)';
+                                    return 'rgba(239, 68, 68, 1)';
+                                }),
                                 borderWidth: 2,
-                                barThickness: 25,
+                                barThickness: 30,
                                 order: 1
                             }
                         ]
@@ -443,26 +405,15 @@
                         maintainAspectRatio: false,
                         scales: {
                             x: {
-                                ticks: {
-                                    font: {
-                                        size: 11
-                                    }
-                                }
+                                stacked: false
                             },
                             y: {
-                                min: Math.min(...candleData.map(d => d.min)) - 200,
-                                max: Math.max(...candleData.map(d => d.max)) + 200,
+                                stacked: true,
+                                min: Math.min(...minValues) - 200,
+                                max: Math.max(...healthData.map(d => d.calories_max)) + 200,
                                 title: {
                                     display: true,
-                                    text: 'Калории',
-                                    font: {
-                                        size: 12
-                                    }
-                                },
-                                ticks: {
-                                    font: {
-                                        size: 11
-                                    }
+                                    text: 'Калории'
                                 }
                             }
                         },
@@ -470,8 +421,8 @@
                             legend: {
                                 position: 'top',
                                 labels: {
-                                    font: {
-                                        size: 11
+                                    filter: function(legendItem) {
+                                        return legendItem.text !== 'Min калорий';
                                     }
                                 }
                             },
@@ -483,18 +434,17 @@
                                         
                                         if (context.datasetIndex === 0) {
                                             return `Норма: ${calorieNorm} ккал/день`;
-                                        } else {
+                                        } else if (context.datasetIndex === 2) {
                                             return `Диапазон: ${Math.round(entry.calories_min)} - ${Math.round(entry.calories_max)} ккал`;
                                         }
+                                        return '';
                                     },
                                     afterLabel: function(context) {
                                         const dataIndex = context.dataIndex;
                                         const entry = healthData[dataIndex];
-                                        const info = [
-                                            `Овощи: ${Math.round(entry.vegetables_percent)}%`
-                                        ];
-                                        if (entry.coffee_cups > 0) info.push(`Кофе: ${entry.coffee_cups} чашек`);
-                                        if (entry.alcohol_units > 0) info.push(`Алкоголь: ${entry.alcohol_units} ед.`);
+                                        const info = [`Овощи: ${Math.round(entry.vegetables_percent)}%`];
+                                        if (entry.coffee_cups > 0) info.push(`☕ ${entry.coffee_cups} чашек`);
+                                        if (entry.alcohol_units > 0) info.push(`🍺 ${entry.alcohol_units} единиц`);
                                         return info;
                                     }
                                 }
@@ -593,9 +543,9 @@
                             </div>
                         </div>
 
-                        {/* График питания - полная ширина */}
+                        {/* График питания */}
                         <div className="bg-white rounded-lg shadow p-4 mb-6">
-                            <h3 className="text-lg font-semibold mb-3">🍎 Питание и калории</h3>
+                            <h3 className="text-lg font-semibold mb-3">🍎 Питание и калории (свечи)</h3>
                             <div className="chart-container">
                                 <canvas ref={nutritionChartRef}></canvas>
                             </div>
@@ -656,3 +606,25 @@
                                                 <span className="text-gray-500">Активность:</span>
                                                 <span className="ml-1">{getActivityEmoji(entry.physical_activity)}</span>
                                             </div>
+                                            <div>
+                                                <span className="text-gray-500">Калории:</span>
+                                                <span className="ml-1">{Math.round(entry.calories_min)}-{Math.round(entry.calories_max)}</span>
+                                            </div>
+                                        </div>
+                                        
+                                        {entry.summary && (
+                                            <p className="text-sm text-gray-600 mt-2 italic">"{entry.summary}"</p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<HealthTracker />, document.getElementById('root'));
+    </script>
+</body>
+</html>
