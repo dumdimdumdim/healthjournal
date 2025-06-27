@@ -351,10 +351,6 @@
 
                 const labels = healthData.map(d => new Date(d.date).toLocaleDateString('ru-RU', {month: 'short', day: 'numeric'}));
                 
-                // Создаем эмуляцию свечей через stacked bar chart
-                const minValues = healthData.map(d => d.calories_min);
-                const rangeValues = healthData.map(d => d.calories_max - d.calories_min);
-                
                 window.nutritionChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
@@ -372,27 +368,41 @@
                                 pointRadius: 0,
                                 order: 0
                             },
-                            // Нижняя часть свечи (минимум) - прозрачная
+                            // Минимальные калории (основание свечи)
                             {
-                                label: 'Min калорий',
-                                data: minValues,
-                                backgroundColor: 'rgba(0,0,0,0)',
-                                borderColor: 'rgba(0,0,0,0)',
-                                order: 2
-                            },
-                            // Верхняя часть свечи (диапазон)
-                            {
-                                label: 'Диапазон калорий',
-                                data: rangeValues,
+                                label: 'Мин. калории',
+                                data: healthData.map(d => d.calories_min),
                                 backgroundColor: healthData.map(d => {
-                                    if (d.vegetables_percent >= 50) return 'rgba(34, 197, 94, 0.7)';
-                                    if (d.vegetables_percent >= 30) return 'rgba(245, 158, 11, 0.7)';
-                                    return 'rgba(239, 68, 68, 0.7)';
+                                    const baseColor = d.vegetables_percent >= 50 ? '34, 197, 94' : 
+                                                     d.vegetables_percent >= 30 ? '245, 158, 11' : 
+                                                     '239, 68, 68';
+                                    return `rgba(${baseColor}, 0.3)`;
                                 }),
                                 borderColor: healthData.map(d => {
-                                    if (d.vegetables_percent >= 50) return 'rgba(34, 197, 94, 1)';
-                                    if (d.vegetables_percent >= 30) return 'rgba(245, 158, 11, 1)';
-                                    return 'rgba(239, 68, 68, 1)';
+                                    const baseColor = d.vegetables_percent >= 50 ? '34, 197, 94' : 
+                                                     d.vegetables_percent >= 30 ? '245, 158, 11' : 
+                                                     '239, 68, 68';
+                                    return `rgba(${baseColor}, 1)`;
+                                }),
+                                borderWidth: 2,
+                                barThickness: 30,
+                                order: 2
+                            },
+                            // Дополнительные калории (верхняя часть свечи)
+                            {
+                                label: 'Макс. калории',
+                                data: healthData.map(d => d.calories_max - d.calories_min),
+                                backgroundColor: healthData.map(d => {
+                                    const baseColor = d.vegetables_percent >= 50 ? '34, 197, 94' : 
+                                                     d.vegetables_percent >= 30 ? '245, 158, 11' : 
+                                                     '239, 68, 68';
+                                    return `rgba(${baseColor}, 0.8)`;
+                                }),
+                                borderColor: healthData.map(d => {
+                                    const baseColor = d.vegetables_percent >= 50 ? '34, 197, 94' : 
+                                                     d.vegetables_percent >= 30 ? '245, 158, 11' : 
+                                                     '239, 68, 68';
+                                    return `rgba(${baseColor}, 1)`;
                                 }),
                                 borderWidth: 2,
                                 barThickness: 30,
@@ -405,11 +415,11 @@
                         maintainAspectRatio: false,
                         scales: {
                             x: {
-                                stacked: false
+                                stacked: true
                             },
                             y: {
                                 stacked: true,
-                                min: Math.min(...minValues) - 200,
+                                min: Math.min(...healthData.map(d => d.calories_min)) - 200,
                                 max: Math.max(...healthData.map(d => d.calories_max)) + 200,
                                 title: {
                                     display: true,
@@ -421,8 +431,21 @@
                             legend: {
                                 position: 'top',
                                 labels: {
-                                    filter: function(legendItem) {
-                                        return legendItem.text !== 'Min калорий';
+                                    generateLabels: function(chart) {
+                                        return [
+                                            {
+                                                text: 'Норма калорий',
+                                                fillStyle: '#6b7280',
+                                                strokeStyle: '#6b7280',
+                                                lineWidth: 3,
+                                                lineDash: [8, 4]
+                                            },
+                                            {
+                                                text: 'Диапазон калорий',
+                                                fillStyle: 'rgba(59, 130, 246, 0.8)',
+                                                strokeStyle: 'rgba(59, 130, 246, 1)'
+                                            }
+                                        ];
                                     }
                                 }
                             },
@@ -434,10 +457,9 @@
                                         
                                         if (context.datasetIndex === 0) {
                                             return `Норма: ${calorieNorm} ккал/день`;
-                                        } else if (context.datasetIndex === 2) {
+                                        } else {
                                             return `Диапазон: ${Math.round(entry.calories_min)} - ${Math.round(entry.calories_max)} ккал`;
                                         }
-                                        return '';
                                     },
                                     afterLabel: function(context) {
                                         const dataIndex = context.dataIndex;
