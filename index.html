@@ -1,4 +1,82 @@
-<!DOCTYPE html>
+{/* График питания с Error Bars */}
+                        <div className="bg-white p-6 rounded-lg shadow-md">
+                            <h3 className="text-lg font-semibold mb-4 flex items-center">
+                                🍎 Питание и калории (диапазон)
+                            </h3>
+                            
+                            {(() => {
+                                const normMin = Math.round(calorieNorm * 0.85);
+                                const normMax = Math.round(calorieNorm * 1.15);
+                                
+                                const nutritionData = healthData
+                                    .filter(d => d.calories_min > 0 || d.calories_max > 0)
+                                    .map(d => {
+                                        const avg = (d.calories_min + d.calories_max) / 2;
+                                        const errorDown = avg - d.calories_min;
+                                        const errorUp = d.calories_max - avg;
+                                        
+                                        let fill = '#ef4444';
+                                        if (d.vegetables_percent >= 50) fill = '#22c55e';
+                                        else if (d.vegetables_percent >= 30) fill = '#f59e0b';
+                                        
+                                        return {
+                                            day: new Date(d.date).toLocaleDateString('ru-RU', {month: 'short', day: 'numeric'}),
+                                            average: Math.round(avg),
+                                            min: d.calories_min,
+                                            max: d.calories_max,
+                                            errorDown: Math.round(errorDown),
+                                            errorUp: Math.round(errorUp),
+                                            fill: fill,
+                                            vegetables: d.vegetables_percent,
+                                            coffee: d.coffee_cups,
+                                            alcohol: d.alcohol_units,
+                                            normMin: normMin,
+                                            normMax: normMax,
+                                            norm: calorieNorm
+                                        };
+                                    });
+
+                                if (nutritionData.length === 0) {
+                                    return (
+                                        <div className="h-64 flex items-center justify-center text-gray-500">
+                                            📊 Нет данных о питании для отображения
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <BarChart data={nutritionData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                            <XAxis dataKey="day" stroke="#6b7280" />
+                                            <YAxis 
+                                                stroke="#6b7280"
+                                                domain={[0, 5000]}
+                                                tickFormatter={(value) => `${value}`}
+                                                label={{ value: 'Калории (ккал)', angle: -90, position: 'insideLeft' }}
+                                            />
+                                            
+                                            {/* Зона нормы */}
+                                            <ReferenceLine y={normMin} stroke="#d1d5db" strokeDasharray="5 5" />
+                                            <ReferenceLine y={normMax} stroke="#d1d5db" strokeDasharray="5 5" />
+                                            <ReferenceLine y={calorieNorm} stroke="#9ca3af" strokeWidth={2} strokeDasharray="8 4" />
+                                            
+                                            {/* Столбцы с погрешностями */}
+                                            <Bar 
+                                                dataKey="average" 
+                                                fill={(entry) => entry?.fill || '#ef4444'}
+                                                stroke="#374151"
+                                                strokeWidth={1}
+                                            >
+                                                <ErrorBar dataKey="errorDown" width={4} stroke="#374151" strokeWidth={2} direction="down" />
+                                                <ErrorBar dataKey="errorUp" width={4} stroke="#374151" strokeWidth={2} direction="up" />
+                                            </Bar>
+                                            
+                                            <Tooltip content={({ active, payload, label }) => {
+                                                if (active && payload && payload.length) {
+                                                    const data = payload[0].payload;
+                                                    return (
+                                <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -341,152 +419,12 @@
                 });
             };
 
-            // Загрузка Plotly из CDN
-            useEffect(() => {
-                const script = document.createElement('script');
-                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js';
-                script.onload = () => {
-                    console.log('Plotly загружен');
-                    if (healthData.length > 0) {
-                        drawNutritionChart();
-                    }
-                };
-                document.head.appendChild(script);
-                
-                return () => {
-                    if (document.head.contains(script)) {
-                        document.head.removeChild(script);
-                    }
-                };
-            }, []);
+            // Загрузка Plotly из CDN - УБИРАЕМ
+            // Теперь используем Recharts
 
             const drawNutritionChart = () => {
-                if (!nutritionChartRef.current || !window.Plotly) return;
-
-                // Зона нормы ±15%
-                const normMin = Math.round(calorieNorm * 0.85); // 2720
-                const normMax = Math.round(calorieNorm * 1.15); // 3680
-
-                // Готовим данные для свечей
-                const candleData = healthData
-                    .filter(d => d.calories_min > 0 || d.calories_max > 0) // Только дни с данными
-                    .map(d => ({
-                        x: new Date(d.date).toLocaleDateString('ru-RU', {month: 'short', day: 'numeric'}),
-                        open: d.calories_min,
-                        high: d.calories_max,
-                        low: d.calories_min,
-                        close: d.calories_max,
-                        vegetables: d.vegetables_percent,
-                        coffee: d.coffee_cups,
-                        alcohol: d.alcohol_units,
-                        date: d.date
-                    }));
-
-                if (candleData.length === 0) {
-                    nutritionChartRef.current.innerHTML = '<div style="padding: 40px; text-align: center; color: #6b7280;">📊 Нет данных о питании для отображения</div>';
-                    return;
-                }
-
-                // Цвета по овощам
-                const getColor = (vegetables) => {
-                    if (vegetables >= 50) return '#22c55e'; // Зеленый
-                    if (vegetables >= 30) return '#f59e0b'; // Желтый
-                    return '#ef4444'; // Красный
-                };
-
-                const traces = [
-                    // Зона нормы (фон)
-                    {
-                        x: candleData.map(d => d.x),
-                        y: Array(candleData.length).fill(normMax),
-                        type: 'bar',
-                        name: 'Зона нормы',
-                        marker: {
-                            color: 'rgba(229, 231, 235, 0.4)',
-                            line: { color: 'rgba(156, 163, 175, 0.6)', width: 1 }
-                        },
-                        width: 0.8,
-                        base: Array(candleData.length).fill(normMin),
-                        hoverinfo: 'skip',
-                        showlegend: false
-                    }
-                ];
-
-                // Добавляем цветные столбцы для каждого дня
-                candleData.forEach((d, i) => {
-                    traces.push({
-                        x: [d.x],
-                        y: [d.high],
-                        type: 'bar',
-                        name: i === 0 ? 'Диапазон калорий' : '',
-                        marker: {
-                            color: getColor(d.vegetables),
-                            line: { color: getColor(d.vegetables), width: 2 }
-                        },
-                        width: 0.4,
-                        base: [d.low],
-                        showlegend: i === 0,
-                        hovertemplate: 
-                            `<b>%{x}</b><br>` +
-                            `🍽️ Потребление: ${d.low}-${d.high} ккал<br>` +
-                            `${d.vegetables >= 50 ? '🥬 Много' : d.vegetables >= 30 ? '🥕 Умеренно' : '🍅 Мало'} овощей: ${Math.round(d.vegetables)}%` +
-                            (d.coffee > 0 ? `<br>☕ Кофе: ${d.coffee} чашек` : '') +
-                            (d.alcohol > 0 ? `<br>🍺 Алкоголь: ${d.alcohol} ед.` : '') +
-                            '<extra></extra>'
-                    });
-                });
-
-                // Линия нормы
-                traces.push({
-                    x: candleData.map(d => d.x),
-                    y: Array(candleData.length).fill(calorieNorm),
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: 'Норма калорий',
-                    line: {
-                        color: '#9ca3af',
-                        width: 2,
-                        dash: 'dash'
-                    },
-                    hovertemplate: `📊 Рекомендуемый интервал: ${normMin}-${normMax} ккал<extra></extra>`
-                });
-
-                const layout = {
-                    title: {
-                        text: '🍎 Питание и калории (свечи)',
-                        font: { size: 18, color: '#374151' }
-                    },
-                    xaxis: {
-                        title: 'Дни',
-                        showgrid: true,
-                        gridcolor: 'rgba(0,0,0,0.1)'
-                    },
-                    yaxis: {
-                        title: 'Калории (ккал)',
-                        range: [0, 5000],
-                        showgrid: true,
-                        gridcolor: 'rgba(0,0,0,0.1)',
-                        tickformat: ',.0f'
-                    },
-                    plot_bgcolor: 'white',
-                    paper_bgcolor: 'white',
-                    font: { family: 'system-ui, sans-serif', size: 12 },
-                    legend: {
-                        orientation: 'h',
-                        y: 1.1,
-                        x: 0.5,
-                        xanchor: 'center'
-                    },
-                    margin: { l: 80, r: 40, t: 80, b: 60 },
-                    hovermode: 'x unified'
-                };
-
-                const config = {
-                    responsive: true,
-                    displayModeBar: false
-                };
-
-                window.Plotly.newPlot(nutritionChartRef.current, traces, layout, config);
+                // Этот метод больше не нужен, используем JSX компонент
+                return null;
             };
 
             const getActivityEmoji = (level) => {
