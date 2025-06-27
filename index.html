@@ -351,91 +351,88 @@
 
                 const labels = healthData.map(d => new Date(d.date).toLocaleDateString('ru-RU', {month: 'short', day: 'numeric'}));
                 
-                // Фильтруем дни с данными о питании
-                const nutritionData = healthData.map((d, index) => ({
-                    ...d,
-                    index,
-                    hasData: d.calories_min > 0 || d.calories_max > 0
-                }));
+                // Функция для определения цвета по проценту овощей
+                const getVegetableColor = (percent, alpha = 0.8) => {
+                    if (percent >= 50) return `rgba(34, 197, 94, ${alpha})`; // Зеленый
+                    if (percent >= 30) return `rgba(245, 158, 11, ${alpha})`; // Желтый
+                    return `rgba(239, 68, 68, ${alpha})`; // Красный
+                };
+                
+                // Зоны нормы калорий
+                const calorieNormMin = Math.round(calorieNorm * 0.9); // -10%
+                const calorieNormMax = Math.round(calorieNorm * 1.1); // +10%
                 
                 window.nutritionChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: labels,
                         datasets: [
-                            // Зона нормы калорий (минимум)
+                            // Зона нормы калорий (фон)
                             {
-                                label: 'Норма калорий (мин)',
-                                data: Array(healthData.length).fill(calorieNorm * 0.9), // -10%
-                                type: 'line',
-                                borderColor: 'rgba(107, 114, 128, 0.3)',
-                                backgroundColor: 'rgba(107, 114, 128, 0.1)',
-                                fill: '+1',
-                                pointRadius: 0,
-                                order: 0
+                                label: 'Зона нормы',
+                                data: Array(healthData.length).fill(calorieNormMax - calorieNormMin),
+                                backgroundColor: 'rgba(156, 163, 175, 0.2)',
+                                borderColor: 'rgba(156, 163, 175, 0.4)',
+                                borderWidth: 1,
+                                barThickness: 60,
+                                order: 3,
+                                stack: 'norm'
                             },
-                            // Зона нормы калорий (максимум)
+                            // Базовая линия для зоны нормы
                             {
-                                label: 'Норма калорий (макс)',
-                                data: Array(healthData.length).fill(calorieNorm * 1.1), // +10%
-                                type: 'line',
-                                borderColor: 'rgba(107, 114, 128, 0.5)',
-                                backgroundColor: 'rgba(107, 114, 128, 0.1)',
-                                pointRadius: 0,
-                                order: 0
+                                label: 'Базовая норма',
+                                data: Array(healthData.length).fill(calorieNormMin),
+                                backgroundColor: 'transparent',
+                                borderColor: 'transparent',
+                                barThickness: 60,
+                                order: 4,
+                                stack: 'norm'
                             },
-                            // Основная линия нормы
+                            // Пунктирная линия нормы
                             {
                                 label: 'Норма калорий',
                                 data: Array(healthData.length).fill(calorieNorm),
                                 type: 'line',
                                 borderColor: '#6b7280',
                                 borderDash: [8, 4],
-                                borderWidth: 3,
+                                borderWidth: 2,
                                 fill: false,
                                 pointRadius: 0,
                                 order: 0
                             },
-                            // Свечи калорий - показываем только если есть данные
+                            // Базовая линия для свечей (от 0 до min)
+                            {
+                                label: 'База свечей',
+                                data: healthData.map(d => {
+                                    // Показываем только если есть данные о питании
+                                    return (d.calories_min > 0 || d.calories_max > 0) ? d.calories_min : null;
+                                }),
+                                backgroundColor: 'transparent',
+                                borderColor: 'transparent',
+                                barThickness: 35,
+                                order: 2,
+                                stack: 'calories'
+                            },
+                            // Свечи калорий (от min до max)
                             {
                                 label: 'Диапазон калорий',
-                                data: nutritionData.map(d => d.hasData ? d.calories_max : null),
-                                backgroundColor: nutritionData.map(d => {
-                                    if (!d.hasData) return 'transparent';
-                                    const color = d.vegetables_percent >= 50 ? '34, 197, 94' : 
-                                                 d.vegetables_percent >= 30 ? '245, 158, 11' : 
-                                                 '239, 68, 68';
-                                    return `rgba(${color}, 0.8)`;
+                                data: healthData.map(d => {
+                                    // Показываем только если есть данные о питании
+                                    if (d.calories_min === 0 && d.calories_max === 0) return null;
+                                    return d.calories_max - d.calories_min;
                                 }),
-                                borderColor: nutritionData.map(d => {
-                                    if (!d.hasData) return 'transparent';
-                                    const color = d.vegetables_percent >= 50 ? '34, 197, 94' : 
-                                                 d.vegetables_percent >= 30 ? '245, 158, 11' : 
-                                                 '239, 68, 68';
-                                    return `rgba(${color}, 1)`;
+                                backgroundColor: healthData.map(d => {
+                                    if (d.calories_min === 0 && d.calories_max === 0) return null;
+                                    return getVegetableColor(d.vegetables_percent, 0.8);
+                                }),
+                                borderColor: healthData.map(d => {
+                                    if (d.calories_min === 0 && d.calories_max === 0) return null;
+                                    return getVegetableColor(d.vegetables_percent, 1);
                                 }),
                                 borderWidth: 2,
-                                barThickness: 40,
-                                order: 1
-                            },
-                            // Нижняя граница калорий (только для дней с данными)
-                            {
-                                label: 'Мин калории',
-                                data: nutritionData.map(d => d.hasData ? d.calories_min : null),
-                                backgroundColor: nutritionData.map(d => {
-                                    if (!d.hasData) return 'transparent';
-                                    return 'rgba(255, 255, 255, 0.9)'; // Белый для выреза
-                                }),
-                                borderColor: nutritionData.map(d => {
-                                    if (!d.hasData) return 'transparent';
-                                    const color = d.vegetables_percent >= 50 ? '34, 197, 94' : 
-                                                 d.vegetables_percent >= 30 ? '245, 158, 11' : 
-                                                 '239, 68, 68';
-                                    return `rgba(${color}, 1)`;
-                                }),
-                                borderWidth: 2,
-                                barThickness: 40,
-                                order: 2
+                                barThickness: 35,
+                                order: 1,
+                                stack: 'calories'
                             }
                         ]
                     },
@@ -444,7 +441,7 @@
                         maintainAspectRatio: false,
                         scales: {
                             x: {
-                                stacked: true
+                                stacked: false
                             },
                             y: {
                                 stacked: true,
@@ -452,10 +449,13 @@
                                 max: 6000,
                                 title: {
                                     display: true,
-                                    text: 'Калории (0-6000)'
+                                    text: 'Калории (ккал)'
                                 },
                                 ticks: {
-                                    stepSize: 500
+                                    stepSize: 500,
+                                    callback: function(value) {
+                                        return value.toLocaleString();
+                                    }
                                 }
                             }
                         },
@@ -464,49 +464,75 @@
                                 position: 'top',
                                 labels: {
                                     filter: function(legendItem) {
-                                        return !['Норма калорий (мин)', 'Норма калорий (макс)', 'Мин калории'].includes(legendItem.text);
+                                        // Показываем только основные элементы
+                                        return ['Норма калорий', 'Диапазон калорий'].includes(legendItem.text);
                                     }
                                 }
                             },
                             tooltip: {
                                 filter: function(tooltipItem) {
-                                    const dataIndex = tooltipItem.dataIndex;
-                                    const entry = nutritionData[dataIndex];
-                                    return entry.hasData && tooltipItem.datasetIndex >= 2;
+                                    // Показываем tooltip только для свечей и нормы
+                                    const validDatasets = [2, 4]; // Норма и свечи
+                                    return validDatasets.includes(tooltipItem.datasetIndex);
                                 },
                                 callbacks: {
+                                    title: function(context) {
+                                        const dataIndex = context[0].dataIndex;
+                                        const date = healthData[dataIndex].date;
+                                        return new Date(date).toLocaleDateString('ru-RU', {
+                                            weekday: 'long',
+                                            month: 'long', 
+                                            day: 'numeric'
+                                        });
+                                    },
                                     label: function(context) {
                                         const dataIndex = context.dataIndex;
                                         const entry = healthData[dataIndex];
                                         
-                                        if (!entry || (entry.calories_min === 0 && entry.calories_max === 0)) {
-                                            return 'Нет данных о питании';
+                                        if (context.datasetIndex === 2) {
+                                            return `Норма: ${calorieNormMin}-${calorieNormMax} ккал/день`;
                                         }
                                         
-                                        if (context.datasetIndex === 2) {
-                                            return `Норма: ${Math.round(calorieNorm * 0.9)}-${Math.round(calorieNorm * 1.1)} ккал/день`;
-                                        } else {
-                                            return `Потребление: ${Math.round(entry.calories_min)} - ${Math.round(entry.calories_max)} ккал`;
+                                        if (context.datasetIndex === 4) {
+                                            if (entry.calories_min === 0 && entry.calories_max === 0) {
+                                                return 'Нет данных о питании';
+                                            }
+                                            return `Потребление: ${Math.round(entry.calories_min)}-${Math.round(entry.calories_max)} ккал`;
                                         }
+                                        
+                                        return '';
                                     },
                                     afterLabel: function(context) {
                                         const dataIndex = context.dataIndex;
                                         const entry = healthData[dataIndex];
                                         
-                                        if (!entry || (entry.calories_min === 0 && entry.calories_max === 0)) {
-                                            return [];
+                                        if (context.datasetIndex === 4 && (entry.calories_min > 0 || entry.calories_max > 0)) {
+                                            const info = [];
+                                            
+                                            // Информация об овощах
+                                            if (entry.vegetables_percent >= 50) {
+                                                info.push(`🥬 Много овощей: ${Math.round(entry.vegetables_percent)}%`);
+                                            } else if (entry.vegetables_percent >= 30) {
+                                                info.push(`🥕 Умеренно овощей: ${Math.round(entry.vegetables_percent)}%`);
+                                            } else if (entry.vegetables_percent > 0) {
+                                                info.push(`🍅 Мало овощей: ${Math.round(entry.vegetables_percent)}%`);
+                                            }
+                                            
+                                            // Напитки
+                                            if (entry.coffee_cups > 0) info.push(`☕ Кофе: ${entry.coffee_cups} чашек`);
+                                            if (entry.alcohol_units > 0) info.push(`🍺 Алкоголь: ${entry.alcohol_units} ед.`);
+                                            
+                                            return info;
                                         }
                                         
-                                        const vegetableLabel = entry.vegetables_percent >= 50 ? 'Много овощей' :
-                                                              entry.vegetables_percent >= 30 ? 'Умеренно овощей' : 
-                                                              entry.vegetables_percent > 0 ? 'Мало овощей' : 'Данных об овощах нет';
-                                        const info = [`${vegetableLabel}: ${Math.round(entry.vegetables_percent)}%`];
-                                        if (entry.coffee_cups > 0) info.push(`☕ Кофе: ${entry.coffee_cups} чашек`);
-                                        if (entry.alcohol_units > 0) info.push(`🍺 Алкоголь: ${entry.alcohol_units} единиц`);
-                                        return info;
+                                        return [];
                                     }
                                 }
                             }
+                        },
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
                         }
                     }
                 });
