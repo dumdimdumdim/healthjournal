@@ -342,194 +342,149 @@
             };
 
             const drawNutritionChart = () => {
-                const ctx = nutritionChartRef.current?.getContext('2d');
-                if (!ctx) return;
+                if (!nutritionChartRef.current) return;
 
-                if (window.nutritionChart) {
-                    window.nutritionChart.destroy();
-                }
-
-                const labels = healthData.map(d => new Date(d.date).toLocaleDateString('ru-RU', {month: 'short', day: 'numeric'}));
-                
                 // Зона нормы ±15%
                 const normMin = Math.round(calorieNorm * 0.85); // 2720
                 const normMax = Math.round(calorieNorm * 1.15); // 3680
-                
+
+                // Готовим данные для свечей
+                const candleData = healthData
+                    .filter(d => d.calories_min > 0 || d.calories_max > 0) // Только дни с данными
+                    .map(d => ({
+                        x: new Date(d.date).toLocaleDateString('ru-RU', {month: 'short', day: 'numeric'}),
+                        open: d.calories_min,
+                        high: d.calories_max,
+                        low: d.calories_min,
+                        close: d.calories_max,
+                        vegetables: d.vegetables_percent,
+                        coffee: d.coffee_cups,
+                        alcohol: d.alcohol_units,
+                        date: d.date
+                    }));
+
                 // Цвета по овощам
                 const getColor = (vegetables) => {
-                    if (vegetables >= 50) return { bg: 'rgba(34, 197, 94, 0.8)', border: 'rgb(34, 197, 94)' };
-                    if (vegetables >= 30) return { bg: 'rgba(245, 158, 11, 0.8)', border: 'rgb(245, 158, 11)' };
-                    return { bg: 'rgba(239, 68, 68, 0.8)', border: 'rgb(239, 68, 68)' };
+                    if (vegetables >= 50) return '#22c55e'; // Зеленый
+                    if (vegetables >= 30) return '#f59e0b'; // Желтый
+                    return '#ef4444'; // Красный
                 };
 
-                window.nutritionChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [
-                            // 1. Зона нормы (серый фон)
-                            {
-                                label: 'Зона нормы',
-                                data: Array(healthData.length).fill(normMax),
-                                backgroundColor: 'rgba(229, 231, 235, 0.6)',
-                                borderColor: 'rgba(156, 163, 175, 0.8)',
-                                borderWidth: 1,
-                                barThickness: 70,
-                                order: 3
-                            },
-                            // 2. Вырез зоны нормы снизу
-                            {
-                                label: 'Вырез нормы',
-                                data: Array(healthData.length).fill(normMin),
-                                backgroundColor: 'rgba(255, 255, 255, 1)',
-                                borderColor: 'rgba(156, 163, 175, 0.8)',
-                                borderWidth: 1,
-                                barThickness: 70,
-                                order: 4
-                            },
-                            // 3. Пунктирная линия нормы
-                            {
-                                label: 'Норма калорий',
-                                data: Array(healthData.length).fill(calorieNorm),
-                                type: 'line',
-                                borderColor: '#9ca3af',
-                                borderDash: [5, 5],
-                                borderWidth: 2,
-                                fill: false,
-                                pointRadius: 0,
-                                order: 0
-                            },
-                            // 4. Свечи калорий
-                            {
-                                label: 'Диапазон калорий',
-                                data: healthData.map(d => {
-                                    return (d.calories_min > 0 || d.calories_max > 0) ? d.calories_max : null;
-                                }),
-                                backgroundColor: healthData.map(d => {
-                                    if (d.calories_min === 0 && d.calories_max === 0) return 'transparent';
-                                    return getColor(d.vegetables_percent).bg;
-                                }),
-                                borderColor: healthData.map(d => {
-                                    if (d.calories_min === 0 && d.calories_max === 0) return 'transparent';
-                                    return getColor(d.vegetables_percent).border;
-                                }),
-                                borderWidth: 2,
-                                barThickness: 30,
-                                order: 1
-                            },
-                            // 5. Вырез свечей снизу (до min)
-                            {
-                                label: 'Вырез свечей',
-                                data: healthData.map(d => {
-                                    return (d.calories_min > 0 || d.calories_max > 0) ? d.calories_min : null;
-                                }),
-                                backgroundColor: healthData.map(d => {
-                                    if (d.calories_min === 0 && d.calories_max === 0) return 'transparent';
-                                    return 'rgba(255, 255, 255, 1)';
-                                }),
-                                borderColor: healthData.map(d => {
-                                    if (d.calories_min === 0 && d.calories_max === 0) return 'transparent';
-                                    return getColor(d.vegetables_percent).border;
-                                }),
-                                borderWidth: 2,
-                                barThickness: 30,
-                                order: 2
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            x: {
-                                stacked: false,
-                                title: {
-                                    display: true,
-                                    text: 'Дни'
-                                }
-                            },
-                            y: {
-                                stacked: true,
-                                min: 0,
-                                max: 5000,
-                                title: {
-                                    display: true,
-                                    text: 'Калории (ккал)'
-                                },
-                                ticks: {
-                                    stepSize: 500,
-                                    callback: function(value) {
-                                        return value.toLocaleString() + ' ккал';
-                                    }
-                                }
-                            }
+                const traces = [
+                    // Зона нормы (фон)
+                    {
+                        x: candleData.map(d => d.x),
+                        y: Array(candleData.length).fill(normMax),
+                        type: 'bar',
+                        name: 'Зона нормы',
+                        marker: {
+                            color: 'rgba(229, 231, 235, 0.4)',
+                            line: { color: 'rgba(156, 163, 175, 0.6)', width: 1 }
                         },
-                        plugins: {
-                            legend: {
-                                position: 'top',
-                                labels: {
-                                    filter: function(legendItem) {
-                                        return ['Норма калорий', 'Диапазон калорий'].includes(legendItem.text);
-                                    },
-                                    usePointStyle: true,
-                                    padding: 20
-                                }
-                            },
-                            tooltip: {
-                                filter: function(tooltipItem) {
-                                    return [2, 3].includes(tooltipItem.datasetIndex);
-                                },
-                                callbacks: {
-                                    title: function(context) {
-                                        const date = healthData[context[0].dataIndex].date;
-                                        return new Date(date).toLocaleDateString('ru-RU', {
-                                            weekday: 'long',
-                                            day: 'numeric',
-                                            month: 'long'
-                                        });
-                                    },
-                                    label: function(context) {
-                                        const entry = healthData[context.dataIndex];
-                                        
-                                        if (context.datasetIndex === 2) {
-                                            return `📊 Рекомендуемый интервал: ${normMin}-${normMax} ккал`;
-                                        }
-                                        
-                                        if (context.datasetIndex === 3) {
-                                            if (entry.calories_min === 0 && entry.calories_max === 0) {
-                                                return '🚫 Нет данных о питании';
-                                            }
-                                            return `🍽️ Потребление: ${Math.round(entry.calories_min)}-${Math.round(entry.calories_max)} ккал`;
-                                        }
-                                        
-                                        return '';
-                                    },
-                                    afterLabel: function(context) {
-                                        if (context.datasetIndex === 3) {
-                                            const entry = healthData[context.dataIndex];
-                                            if (entry.calories_min === 0 && entry.calories_max === 0) return [];
-                                            
-                                            const info = [];
-                                            if (entry.vegetables_percent >= 50) {
-                                                info.push(`🥬 Много овощей (${Math.round(entry.vegetables_percent)}%)`);
-                                            } else if (entry.vegetables_percent >= 30) {
-                                                info.push(`🥕 Умеренно овощей (${Math.round(entry.vegetables_percent)}%)`);
-                                            } else if (entry.vegetables_percent > 0) {
-                                                info.push(`🍅 Мало овощей (${Math.round(entry.vegetables_percent)}%)`);
-                                            }
-                                            
-                                            if (entry.coffee_cups > 0) info.push(`☕ ${entry.coffee_cups} чашек кофе`);
-                                            if (entry.alcohol_units > 0) info.push(`🍺 ${entry.alcohol_units} ед. алкоголя`);
-                                            
-                                            return info;
-                                        }
-                                        return [];
-                                    }
-                                }
-                            }
-                        }
+                        width: 0.8,
+                        base: Array(candleData.length).fill(normMin),
+                        hoverinfo: 'skip',
+                        showlegend: false
+                    },
+                    // Свечи калорий
+                    {
+                        x: candleData.map(d => d.x),
+                        open: candleData.map(d => d.open),
+                        high: candleData.map(d => d.high),
+                        low: candleData.map(d => d.low),
+                        close: candleData.map(d => d.close),
+                        type: 'candlestick',
+                        name: 'Диапазон калорий',
+                        increasing: { 
+                            line: { color: 'transparent', width: 0 },
+                            fillcolor: 'transparent'
+                        },
+                        decreasing: { 
+                            line: { color: 'transparent', width: 0 },
+                            fillcolor: 'transparent'
+                        },
+                        line: { width: 0 },
+                        whiskerwidth: 0,
+                        hoverinfo: 'none',
+                        showlegend: false
                     }
+                ];
+
+                // Добавляем цветные столбцы для каждого дня
+                candleData.forEach((d, i) => {
+                    traces.push({
+                        x: [d.x],
+                        y: [d.high],
+                        type: 'bar',
+                        name: i === 0 ? 'Диапазон калорий' : '',
+                        marker: {
+                            color: getColor(d.vegetables),
+                            line: { color: getColor(d.vegetables), width: 2 }
+                        },
+                        width: 0.4,
+                        base: [d.low],
+                        showlegend: i === 0,
+                        hovertemplate: 
+                            `<b>%{x}</b><br>` +
+                            `🍽️ Потребление: ${d.low}-${d.high} ккал<br>` +
+                            `${d.vegetables >= 50 ? '🥬 Много' : d.vegetables >= 30 ? '🥕 Умеренно' : '🍅 Мало'} овощей: ${Math.round(d.vegetables)}%` +
+                            (d.coffee > 0 ? `<br>☕ Кофе: ${d.coffee} чашек` : '') +
+                            (d.alcohol > 0 ? `<br>🍺 Алкоголь: ${d.alcohol} ед.` : '') +
+                            '<extra></extra>'
+                    });
                 });
+
+                // Линия нормы
+                traces.push({
+                    x: candleData.map(d => d.x),
+                    y: Array(candleData.length).fill(calorieNorm),
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'Норма калорий',
+                    line: {
+                        color: '#9ca3af',
+                        width: 2,
+                        dash: 'dash'
+                    },
+                    hovertemplate: `📊 Рекомендуемый интервал: ${normMin}-${normMax} ккал<extra></extra>`
+                });
+
+                const layout = {
+                    title: {
+                        text: '🍎 Питание и калории (свечи)',
+                        font: { size: 18, color: '#374151' }
+                    },
+                    xaxis: {
+                        title: 'Дни',
+                        showgrid: true,
+                        gridcolor: 'rgba(0,0,0,0.1)'
+                    },
+                    yaxis: {
+                        title: 'Калории (ккал)',
+                        range: [0, 5000],
+                        showgrid: true,
+                        gridcolor: 'rgba(0,0,0,0.1)',
+                        tickformat: ',.0f'
+                    },
+                    plot_bgcolor: 'white',
+                    paper_bgcolor: 'white',
+                    font: { family: 'system-ui, sans-serif', size: 12 },
+                    legend: {
+                        orientation: 'h',
+                        y: 1.1,
+                        x: 0.5,
+                        xanchor: 'center'
+                    },
+                    margin: { l: 80, r: 40, t: 80, b: 60 },
+                    hovermode: 'x unified'
+                };
+
+                const config = {
+                    responsive: true,
+                    displayModeBar: false
+                };
+
+                Plotly.newPlot(nutritionChartRef.current, traces, layout, config);
             };
 
             const getActivityEmoji = (level) => {
