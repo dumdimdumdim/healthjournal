@@ -88,6 +88,11 @@
                 setIsAnalyzing(true);
 
                 try {
+                    // Проверяем доступность Claude API
+                    if (!window.claude || !window.claude.complete) {
+                        throw new Error('Claude API недоступен. Проверьте подключение.');
+                    }
+
                     const prompt = `Проанализируй рассказ о дне и верни ТОЛЬКО JSON без дополнительного текста.
 
 Рассказ: "${dayText}"
@@ -118,6 +123,10 @@ JSON:
                     const response = await window.claude.complete(prompt);
                     console.log('Raw response:', response);
                     
+                    if (!response) {
+                        throw new Error('Пустой ответ от Claude API');
+                    }
+                    
                     // Множественная очистка ответа
                     let cleanResponse = response.trim();
                     
@@ -136,19 +145,31 @@ JSON:
                     
                     console.log('Cleaned response:', cleanResponse);
                     
+                    if (!cleanResponse || cleanResponse.length < 10) {
+                        throw new Error('Не удалось извлечь JSON из ответа');
+                    }
+                    
                     const analysis = JSON.parse(cleanResponse);
+                    
+                    // Проверяем обязательные поля
+                    const requiredFields = ['sleep_quality', 'mood', 'health_status', 'physical_activity'];
+                    for (const field of requiredFields) {
+                        if (analysis[field] === undefined || analysis[field] === null) {
+                            throw new Error(`Отсутствует обязательное поле: ${field}`);
+                        }
+                    }
                     
                     // Валидация данных
                     const validatedAnalysis = {
-                        sleep_quality: Math.max(-2, Math.min(2, analysis.sleep_quality || 0)),
-                        mood: Math.max(-2, Math.min(2, analysis.mood || 0)),
-                        health_status: Math.max(-2, Math.min(2, analysis.health_status || 0)),
-                        physical_activity: Math.max(0, Math.min(4, analysis.physical_activity || 0)),
-                        calories_min: Math.max(800, analysis.calories_min || 1500),
-                        calories_max: Math.max(analysis.calories_min + 100, analysis.calories_max || 2000),
-                        vegetables_percent: Math.max(0, Math.min(100, analysis.vegetables_percent || 30)),
-                        coffee_cups: Math.max(0, analysis.coffee_cups || 0),
-                        alcohol_units: Math.max(0, analysis.alcohol_units || 0),
+                        sleep_quality: Math.max(-2, Math.min(2, parseInt(analysis.sleep_quality) || 0)),
+                        mood: Math.max(-2, Math.min(2, parseInt(analysis.mood) || 0)),
+                        health_status: Math.max(-2, Math.min(2, parseInt(analysis.health_status) || 0)),
+                        physical_activity: Math.max(0, Math.min(4, parseInt(analysis.physical_activity) || 0)),
+                        calories_min: Math.max(800, parseInt(analysis.calories_min) || 1500),
+                        calories_max: Math.max(parseInt(analysis.calories_min) + 100 || 1600, parseInt(analysis.calories_max) || 2000),
+                        vegetables_percent: Math.max(0, Math.min(100, parseInt(analysis.vegetables_percent) || 30)),
+                        coffee_cups: Math.max(0, parseInt(analysis.coffee_cups) || 0),
+                        alcohol_units: Math.max(0, parseInt(analysis.alcohol_units) || 0),
                         summary: analysis.summary || "Данные о дне",
                         weekly_advice: analysis.weekly_advice || "Следите за здоровьем"
                     };
@@ -164,10 +185,12 @@ JSON:
                     setCurrentSummary(validatedAnalysis.summary);
                     setWeeklyAdvice(validatedAnalysis.weekly_advice);
                     setDayText('');
+                    
+                    alert('✅ Анализ завершен успешно!');
 
                 } catch (error) {
                     console.error('Ошибка анализа:', error);
-                    alert(`Ошибка анализа: ${error.message}. Попробуйте переформулировать рассказ.`);
+                    alert(`❌ Ошибка анализа: ${error.message}\n\nПопробуйте:\n- Переформулировать рассказ\n- Проверить интернет-соединение\n- Обновить страницу`);
                 } finally {
                     setIsAnalyzing(false);
                 }
@@ -301,7 +324,7 @@ JSON:
 
                 const labels = healthData.map(d => new Date(d.date).toLocaleDateString('ru-RU', {month: 'short', day: 'numeric'}));
                 
-                // Создаем свечной график через candlestick emulation
+                // Создаем настоящие свечи - каждая свеча показывает диапазон от min до max
                 const candleData = healthData.map((d, index) => {
                     const color = d.vegetables_percent >= 50 ? 'rgba(34, 197, 94, 0.8)' : 
                                   d.vegetables_percent >= 30 ? 'rgba(245, 158, 11, 0.8)' : 
@@ -309,62 +332,60 @@ JSON:
                     
                     return {
                         x: index,
-                        y: [d.calories_min, d.calories_min, d.calories_max, d.calories_max], // OHLC format
-                        borderColor: color,
-                        backgroundColor: color
+                        y: d.calories_min, // нижняя часть свечи
+                        height: d.calories_max - d.calories_min, // высота свечи
+                        color: color,
+                        vegetables: d.vegetables_percent,
+                        min: d.calories_min,
+                        max: d.calories_max
                     };
                 });
 
+                // Рисуем свечи через комбинацию bar chart
                 window.nutritionChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: labels,
                         datasets: [
+                            // Норма калорий - горизонтальная линия
                             {
                                 label: 'Норма калорий',
                                 data: Array(healthData.length).fill(calorieNorm),
                                 type: 'line',
-                                borderColor: 'rgba(156, 163, 175, 1)',
+                                borderColor: '#6b7280',
                                 borderDash: [8, 4],
-                                borderWidth: 2,
+                                borderWidth: 3,
                                 fill: false,
                                 pointRadius: 0,
-                                order: 1
+                                pointHoverRadius: 0,
+                                order: 0
                             },
+                            // Нижняя часть свечи (минимальные калории)
                             {
-                                label: 'Диапазон калорий (мин)',
+                                label: 'Мин. калории',
                                 data: healthData.map(d => d.calories_min),
-                                backgroundColor: healthData.map(d => {
-                                    const alpha = d.vegetables_percent >= 50 ? '0.3' : 
-                                                  d.vegetables_percent >= 30 ? '0.3' : '0.3';
-                                    return d.vegetables_percent >= 50 ? `rgba(34, 197, 94, ${alpha})` : 
-                                           d.vegetables_percent >= 30 ? `rgba(245, 158, 11, ${alpha})` : 
-                                           `rgba(239, 68, 68, ${alpha})`;
-                                }),
-                                borderColor: healthData.map(d => 
-                                    d.vegetables_percent >= 50 ? 'rgba(34, 197, 94, 1)' : 
-                                    d.vegetables_percent >= 30 ? 'rgba(245, 158, 11, 1)' : 
-                                    'rgba(239, 68, 68, 1)'
-                                ),
-                                borderWidth: 1,
-                                order: 3
+                                backgroundColor: 'rgba(0, 0, 0, 0)', // прозрачный
+                                borderColor: 'rgba(0, 0, 0, 0)',
+                                borderWidth: 0,
+                                order: 2
                             },
+                            // Диапазон калорий (свечи)
                             {
-                                label: 'Диапазон калорий (макс)',
+                                label: 'Диапазон калорий',
                                 data: healthData.map(d => d.calories_max - d.calories_min),
                                 backgroundColor: healthData.map(d => {
-                                    const alpha = '0.6';
-                                    return d.vegetables_percent >= 50 ? `rgba(34, 197, 94, ${alpha})` : 
-                                           d.vegetables_percent >= 30 ? `rgba(245, 158, 11, ${alpha})` : 
-                                           `rgba(239, 68, 68, ${alpha})`;
+                                    if (d.vegetables_percent >= 50) return 'rgba(34, 197, 94, 0.7)';
+                                    if (d.vegetables_percent >= 30) return 'rgba(245, 158, 11, 0.7)';
+                                    return 'rgba(239, 68, 68, 0.7)';
                                 }),
-                                borderColor: healthData.map(d => 
-                                    d.vegetables_percent >= 50 ? 'rgba(34, 197, 94, 1)' : 
-                                    d.vegetables_percent >= 30 ? 'rgba(245, 158, 11, 1)' : 
-                                    'rgba(239, 68, 68, 1)'
-                                ),
-                                borderWidth: 1,
-                                order: 2
+                                borderColor: healthData.map(d => {
+                                    if (d.vegetables_percent >= 50) return 'rgba(34, 197, 94, 1)';
+                                    if (d.vegetables_percent >= 30) return 'rgba(245, 158, 11, 1)';
+                                    return 'rgba(239, 68, 68, 1)';
+                                }),
+                                borderWidth: 2,
+                                barThickness: 30,
+                                order: 1
                             }
                         ]
                     },
@@ -372,7 +393,11 @@ JSON:
                         responsive: true,
                         scales: {
                             x: {
-                                stacked: false
+                                stacked: false,
+                                title: {
+                                    display: true,
+                                    text: 'Дни'
+                                }
                             },
                             y: {
                                 stacked: true,
@@ -389,27 +414,34 @@ JSON:
                                 position: 'top',
                                 labels: {
                                     filter: function(legendItem, chartData) {
-                                        return legendItem.text !== 'Диапазон калорий (макс)';
+                                        // Скрываем "Мин. калории" из легенды
+                                        return legendItem.text !== 'Мин. калории';
                                     }
                                 }
                             },
                             tooltip: {
+                                mode: 'index',
+                                intersect: false,
                                 callbacks: {
                                     label: function(context) {
                                         const dataIndex = context.dataIndex;
                                         const entry = healthData[dataIndex];
                                         
                                         if (context.datasetIndex === 0) {
-                                            return `Норма: ${calorieNorm} ккал`;
-                                        } else if (context.datasetIndex === 1) {
-                                            return `Диапазон: ${Math.round(entry.calories_min)} - ${Math.round(entry.calories_max)} ккал`;
+                                            return `Норма: ${calorieNorm} ккал/день`;
+                                        } else if (context.datasetIndex === 2) {
+                                            return `Потребление: ${Math.round(entry.calories_min)} - ${Math.round(entry.calories_max)} ккал`;
                                         }
                                         return '';
                                     },
                                     afterLabel: function(context) {
                                         const dataIndex = context.dataIndex;
                                         const entry = healthData[dataIndex];
-                                        return `Овощи: ${Math.round(entry.vegetables_percent)}%`;
+                                        return [
+                                            `Овощи: ${Math.round(entry.vegetables_percent)}%`,
+                                            `Кофе: ${entry.coffee_cups} чашек`,
+                                            entry.alcohol_units > 0 ? `Алкоголь: ${entry.alcohol_units} ед.` : ''
+                                        ].filter(Boolean);
                                     }
                                 }
                             }
