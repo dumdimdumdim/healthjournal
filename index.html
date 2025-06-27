@@ -351,12 +351,40 @@
 
                 const labels = healthData.map(d => new Date(d.date).toLocaleDateString('ru-RU', {month: 'short', day: 'numeric'}));
                 
+                // Фильтруем дни с данными о питании
+                const nutritionData = healthData.map((d, index) => ({
+                    ...d,
+                    index,
+                    hasData: d.calories_min > 0 || d.calories_max > 0
+                }));
+                
                 window.nutritionChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: labels,
                         datasets: [
-                            // Норма калорий - линия
+                            // Зона нормы калорий (минимум)
+                            {
+                                label: 'Норма калорий (мин)',
+                                data: Array(healthData.length).fill(calorieNorm * 0.9), // -10%
+                                type: 'line',
+                                borderColor: 'rgba(107, 114, 128, 0.3)',
+                                backgroundColor: 'rgba(107, 114, 128, 0.1)',
+                                fill: '+1',
+                                pointRadius: 0,
+                                order: 0
+                            },
+                            // Зона нормы калорий (максимум)
+                            {
+                                label: 'Норма калорий (макс)',
+                                data: Array(healthData.length).fill(calorieNorm * 1.1), // +10%
+                                type: 'line',
+                                borderColor: 'rgba(107, 114, 128, 0.5)',
+                                backgroundColor: 'rgba(107, 114, 128, 0.1)',
+                                pointRadius: 0,
+                                order: 0
+                            },
+                            // Основная линия нормы
                             {
                                 label: 'Норма калорий',
                                 data: Array(healthData.length).fill(calorieNorm),
@@ -368,37 +396,19 @@
                                 pointRadius: 0,
                                 order: 0
                             },
-                            // Минимальные калории (от 0 до min)
-                            {
-                                label: 'Мин калории',
-                                data: healthData.map(d => d.calories_min),
-                                backgroundColor: healthData.map(d => {
-                                    const color = d.vegetables_percent >= 50 ? '34, 197, 94' : 
-                                                 d.vegetables_percent >= 30 ? '245, 158, 11' : 
-                                                 '239, 68, 68';
-                                    return `rgba(${color}, 0.4)`;
-                                }),
-                                borderColor: healthData.map(d => {
-                                    const color = d.vegetables_percent >= 50 ? '34, 197, 94' : 
-                                                 d.vegetables_percent >= 30 ? '245, 158, 11' : 
-                                                 '239, 68, 68';
-                                    return `rgba(${color}, 1)`;
-                                }),
-                                borderWidth: 2,
-                                barThickness: 40,
-                                order: 2
-                            },
-                            // Дополнительные калории (от min до max)
+                            // Свечи калорий - показываем только если есть данные
                             {
                                 label: 'Диапазон калорий',
-                                data: healthData.map(d => d.calories_max - d.calories_min),
-                                backgroundColor: healthData.map(d => {
+                                data: nutritionData.map(d => d.hasData ? d.calories_max : null),
+                                backgroundColor: nutritionData.map(d => {
+                                    if (!d.hasData) return 'transparent';
                                     const color = d.vegetables_percent >= 50 ? '34, 197, 94' : 
                                                  d.vegetables_percent >= 30 ? '245, 158, 11' : 
                                                  '239, 68, 68';
                                     return `rgba(${color}, 0.8)`;
                                 }),
-                                borderColor: healthData.map(d => {
+                                borderColor: nutritionData.map(d => {
+                                    if (!d.hasData) return 'transparent';
                                     const color = d.vegetables_percent >= 50 ? '34, 197, 94' : 
                                                  d.vegetables_percent >= 30 ? '245, 158, 11' : 
                                                  '239, 68, 68';
@@ -407,6 +417,25 @@
                                 borderWidth: 2,
                                 barThickness: 40,
                                 order: 1
+                            },
+                            // Нижняя граница калорий (только для дней с данными)
+                            {
+                                label: 'Мин калории',
+                                data: nutritionData.map(d => d.hasData ? d.calories_min : null),
+                                backgroundColor: nutritionData.map(d => {
+                                    if (!d.hasData) return 'transparent';
+                                    return 'rgba(255, 255, 255, 0.9)'; // Белый для выреза
+                                }),
+                                borderColor: nutritionData.map(d => {
+                                    if (!d.hasData) return 'transparent';
+                                    const color = d.vegetables_percent >= 50 ? '34, 197, 94' : 
+                                                 d.vegetables_percent >= 30 ? '245, 158, 11' : 
+                                                 '239, 68, 68';
+                                    return `rgba(${color}, 1)`;
+                                }),
+                                borderWidth: 2,
+                                barThickness: 40,
+                                order: 2
                             }
                         ]
                     },
@@ -435,27 +464,42 @@
                                 position: 'top',
                                 labels: {
                                     filter: function(legendItem) {
-                                        return legendItem.text !== 'Мин калории';
+                                        return !['Норма калорий (мин)', 'Норма калорий (макс)', 'Мин калории'].includes(legendItem.text);
                                     }
                                 }
                             },
                             tooltip: {
+                                filter: function(tooltipItem) {
+                                    const dataIndex = tooltipItem.dataIndex;
+                                    const entry = nutritionData[dataIndex];
+                                    return entry.hasData && tooltipItem.datasetIndex >= 2;
+                                },
                                 callbacks: {
                                     label: function(context) {
                                         const dataIndex = context.dataIndex;
                                         const entry = healthData[dataIndex];
                                         
-                                        if (context.datasetIndex === 0) {
-                                            return `Норма: ${calorieNorm} ккал/день`;
+                                        if (!entry || (entry.calories_min === 0 && entry.calories_max === 0)) {
+                                            return 'Нет данных о питании';
+                                        }
+                                        
+                                        if (context.datasetIndex === 2) {
+                                            return `Норма: ${Math.round(calorieNorm * 0.9)}-${Math.round(calorieNorm * 1.1)} ккал/день`;
                                         } else {
-                                            return `Диапазон: ${Math.round(entry.calories_min)} - ${Math.round(entry.calories_max)} ккал`;
+                                            return `Потребление: ${Math.round(entry.calories_min)} - ${Math.round(entry.calories_max)} ккал`;
                                         }
                                     },
                                     afterLabel: function(context) {
                                         const dataIndex = context.dataIndex;
                                         const entry = healthData[dataIndex];
+                                        
+                                        if (!entry || (entry.calories_min === 0 && entry.calories_max === 0)) {
+                                            return [];
+                                        }
+                                        
                                         const vegetableLabel = entry.vegetables_percent >= 50 ? 'Много овощей' :
-                                                              entry.vegetables_percent >= 30 ? 'Умеренно овощей' : 'Мало овощей';
+                                                              entry.vegetables_percent >= 30 ? 'Умеренно овощей' : 
+                                                              entry.vegetables_percent > 0 ? 'Мало овощей' : 'Данных об овощах нет';
                                         const info = [`${vegetableLabel}: ${Math.round(entry.vegetables_percent)}%`];
                                         if (entry.coffee_cups > 0) info.push(`☕ Кофе: ${entry.coffee_cups} чашек`);
                                         if (entry.alcohol_units > 0) info.push(`🍺 Алкоголь: ${entry.alcohol_units} единиц`);
