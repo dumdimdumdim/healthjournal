@@ -341,8 +341,27 @@
                 });
             };
 
+            // Загрузка Plotly из CDN
+            useEffect(() => {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js';
+                script.onload = () => {
+                    console.log('Plotly загружен');
+                    if (healthData.length > 0) {
+                        drawNutritionChart();
+                    }
+                };
+                document.head.appendChild(script);
+                
+                return () => {
+                    if (document.head.contains(script)) {
+                        document.head.removeChild(script);
+                    }
+                };
+            }, []);
+
             const drawNutritionChart = () => {
-                if (!nutritionChartRef.current) return;
+                if (!nutritionChartRef.current || !window.Plotly) return;
 
                 // Зона нормы ±15%
                 const normMin = Math.round(calorieNorm * 0.85); // 2720
@@ -362,6 +381,11 @@
                         alcohol: d.alcohol_units,
                         date: d.date
                     }));
+
+                if (candleData.length === 0) {
+                    nutritionChartRef.current.innerHTML = '<div style="padding: 40px; text-align: center; color: #6b7280;">📊 Нет данных о питании для отображения</div>';
+                    return;
+                }
 
                 // Цвета по овощам
                 const getColor = (vegetables) => {
@@ -384,28 +408,6 @@
                         width: 0.8,
                         base: Array(candleData.length).fill(normMin),
                         hoverinfo: 'skip',
-                        showlegend: false
-                    },
-                    // Свечи калорий
-                    {
-                        x: candleData.map(d => d.x),
-                        open: candleData.map(d => d.open),
-                        high: candleData.map(d => d.high),
-                        low: candleData.map(d => d.low),
-                        close: candleData.map(d => d.close),
-                        type: 'candlestick',
-                        name: 'Диапазон калорий',
-                        increasing: { 
-                            line: { color: 'transparent', width: 0 },
-                            fillcolor: 'transparent'
-                        },
-                        decreasing: { 
-                            line: { color: 'transparent', width: 0 },
-                            fillcolor: 'transparent'
-                        },
-                        line: { width: 0 },
-                        whiskerwidth: 0,
-                        hoverinfo: 'none',
                         showlegend: false
                     }
                 ];
@@ -484,7 +486,7 @@
                     displayModeBar: false
                 };
 
-                Plotly.newPlot(nutritionChartRef.current, traces, layout, config);
+                window.Plotly.newPlot(nutritionChartRef.current, traces, layout, config);
             };
 
             const getActivityEmoji = (level) => {
