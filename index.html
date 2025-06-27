@@ -16,11 +16,7 @@
     <!-- Plotly.js -->
     <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
     <style>
-        .chart-container {
-            position: relative;
-            height: 300px;
-            width: 100%;
-        }
+        .chart-container { position: relative; height: 300px; width: 100%; }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -79,62 +75,25 @@
             drawNutritionChart();
         }, [healthData]);
 
-        // Рисуем динамику самочувствия
+        // Динамика самочувствия
         const drawHealthChart = () => {
             const ctx = healthChartRef.current.getContext('2d');
             if (window.healthChart) window.healthChart.destroy();
             window.healthChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: healthData.map(d => {
-                        const dt = new Date(d.date);
-                        return dt.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
-                    }),
+                    labels: healthData.map(d => new Date(d.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })),
                     datasets: [
-                        {
-                            label: 'Сон',
-                            data: healthData.map(d => d.sleep_quality),
-                            borderColor: 'rgb(59,130,246)',
-                            backgroundColor: 'rgba(59,130,246,0.1)',
-                            tension: 0.3,
-                            pointRadius: 4
-                        },
-                        {
-                            label: 'Настроение',
-                            data: healthData.map(d => d.mood),
-                            borderColor: 'rgb(34,197,94)',
-                            backgroundColor: 'rgba(34,197,94,0.1)',
-                            tension: 0.3,
-                            pointRadius: 4
-                        },
-                        {
-                            label: 'Здоровье',
-                            data: healthData.map(d => d.health_status),
-                            borderColor: 'rgb(168,85,247)',
-                            backgroundColor: 'rgba(168,85,247,0.1)',
-                            tension: 0.3,
-                            pointRadius: 4
-                        }
+                        { label: 'Сон', data: healthData.map(d => d.sleep_quality), borderColor: 'rgb(59,130,246)', backgroundColor: 'rgba(59,130,246,0.1)', tension: 0.3, pointRadius: 4 },
+                        { label: 'Настроение', data: healthData.map(d => d.mood), borderColor: 'rgb(34,197,94)', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.3, pointRadius: 4 },
+                        { label: 'Здоровье', data: healthData.map(d => d.health_status), borderColor: 'rgb(168,85,247)', backgroundColor: 'rgba(168,85,247,0.1)', tension: 0.3, pointRadius: 4 }
                     ]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            min: -2,
-                            max: 2,
-                            ticks: { stepSize: 1 },
-                            grid: {
-                                color: ctx => ctx.tick.value === 0 ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)'
-                            }
-                        }
-                    }
-                }
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: -2, max: 2, ticks: { stepSize: 1 }, grid: { color: ctx => ctx.tick.value === 0 ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)' } } } }
             });
         };
 
-        // Рисуем физическую активность
+        // Физическая активность
         const activityLabels = ['Нет', 'Слабая', 'Нормальная', 'Сильная', 'Экстремальная'];
         const drawActivityChart = () => {
             const ctx = activityChartRef.current.getContext('2d');
@@ -142,65 +101,22 @@
             window.activityChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: healthData.map(d =>
-                        new Date(d.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })
-                    ),
-                    datasets: [{
-                        label: 'Физическая активность',
-                        data: healthData.map(d => d.physical_activity),
-                        backgroundColor: healthData.map(d => {
-                            if (d.physical_activity === 0) return 'rgba(156,163,175,0.8)';
-                            if (d.physical_activity === 1) return 'rgba(34,197,94,0.8)';
-                            if (d.physical_activity === 2) return 'rgba(59,130,246,0.8)';
-                            if (d.physical_activity === 3) return 'rgba(245,158,11,0.8)';
-                            return 'rgba(239,68,68,0.8)';
-                        })
-                    }]
+                    labels: healthData.map(d => new Date(d.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })),
+                    datasets: [{ label: 'Физическая активность', data: healthData.map(d => d.physical_activity), backgroundColor: healthData.map(d => d.physical_activity === 0 ? 'rgba(156,163,175,0.8)' : d.physical_activity === 1 ? 'rgba(34,197,94,0.8)' : d.physical_activity === 2 ? 'rgba(59,130,246,0.8)' : d.physical_activity === 3 ? 'rgba(245,158,11,0.8)' : 'rgba(239,68,68,0.8)') }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            min: 0,
-                            max: 4,
-                            ticks: {
-                                stepSize: 1,
-                                callback: v => activityLabels[v]
-                            },
-                            grid: { color: 'rgba(0,0,0,0.1)' }
-                        }
-                    },
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => `Активность: ${activityLabels[ctx.parsed.y]}`
-                            }
-                        }
-                    }
-                }
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 4, ticks: { stepSize: 1, callback: v => activityLabels[v] }, grid: { color: 'rgba(0,0,0,0.1)' } } }, plugins: { tooltip: { callbacks: { label: ctx => `Активность: ${activityLabels[ctx.parsed.y]}` } } } }
             });
         };
 
-        // Новый drawNutritionChart по ТЗ
+        // Питание и калории (Plotly)
         const drawNutritionChart = () => {
             if (!nutritionRef.current || !window.Plotly) return;
-            const dates = healthData.map(d =>
-                new Date(d.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })
-            );
+            const dates = healthData.map(d => new Date(d.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }));
             const normMin = Math.round(calorieNorm * 0.85);
             const normMax = Math.round(calorieNorm * 1.15);
 
             // Заливка рекомендованного интервала
-            const shapes = [{
-                type: 'rect',
-                xref: 'paper',
-                yref: 'y',
-                x0: 0, x1: 1,
-                y0: normMin, y1: normMax,
-                fillcolor: 'rgba(220,255,220,0.3)',
-                line: { width: 0 }
-            }];
+            const shapes = [{ type: 'rect', xref: 'paper', yref: 'y', x0: 0, x1: 1, y0: normMin, y1: normMax, fillcolor: 'rgba(220,255,220,0.3)', line: { width: 0 } }];
 
             // Столбцы потребления
             const trace = {
@@ -208,25 +124,9 @@
                 y: healthData.map(d => d.calories_max - d.calories_min),
                 base: healthData.map(d => d.calories_min),
                 type: 'bar',
-                marker: {
-                    color: healthData.map(d =>
-                        d.vegetables_percent >= 50 ? '#22c55e' :
-                        d.vegetables_percent >= 30 ? '#f59e0b' :
-                        '#ef4444'
-                    ),
-                    line: { width: 1 }
-                },
-                hovertemplate:
-                  `<b>%{x}</b><br>` +
-                  `Калории: %{base:.0f}–%{y+base:.0f} ккал<br>` +
-                  `Овощи: %{customdata[0]}%<br>` +
-                  `☕ %{customdata[1]}  🍺 %{customdata[2]}<extra></extra>`,
-                customdata: healthData.map(d => [
-                  d.vegetables_percent,
-                  d.coffee_cups,
-                  d.alcohol_units
-                ]),
-                name: 'Потребление'
+                marker: { color: healthData.map(d => d.vegetables_percent >= 50 ? '#22c55e' : d.vegetables_percent >= 30 ? '#f59e0b' : '#ef4444'), line: { width: 1 } },
+                hovertemplate: `<b>%{x}</b><br>Калории: %{base:.0f}–%{y+base:.0f} ккал<br>Овощи: %{customdata[0]}%<br>☕ %{customdata[1]}  🍺 %{customdata[2]}<extra></extra>`,
+                customdata: healthData.map(d => [d.vegetables_percent, d.coffee_cups, d.alcohol_units])
             };
 
             const layout = {
@@ -236,33 +136,23 @@
                 yaxis: {
                     title: 'ккал',
                     tickmode: 'array',
-                    tickvals: [normMin, Math.round((normMin + normMax) / 2), normMax],
-                    ticktext: [normMin, '', normMax],
+                    tickvals: [normMin, calorieNorm, normMax],
+                    ticktext: [normMin.toString(), calorieNorm.toString(), normMax.toString()],
                     rangemode: 'tozero'
                 },
                 margin: { t: 40, b: 60, l: 60, r: 20 },
                 showlegend: false
             };
 
-            Plotly.react(
-                nutritionRef.current,
-                [trace],
-                layout,
-                { displayModeBar: false, responsive: true }
-            );
+            Plotly.react(nutritionRef.current, [trace], layout, { displayModeBar: false, responsive: true });
         };
 
-        // Мок-анализ текста (заменить на реальный API)
+        // Мок-анализ текста
         const analyzeDay = () => {
-            if (!dayText.trim()) { alert('Пожалуйста, опишите ваш день'); return; }
+            if (!dayText.trim()) { alert('Расскажите о дне'); return; }
             setIsAnalyzing(true);
             setTimeout(() => {
-                const analysis = {
-                    sleep_quality: 0, mood: 1, health_status: 1, physical_activity: 2,
-                    calories_min: calorieNorm - 200, calories_max: calorieNorm + 300,
-                    vegetables_percent: 40, coffee_cups: 1, alcohol_units: 0,
-                    summary: 'День прошёл неплохо', weekly_advice: 'Добавьте больше овощей и поддерживайте активность'
-                };
+                const analysis = { sleep_quality: 0, mood: 1, health_status: 1, physical_activity: 2, calories_min: calorieNorm - 200, calories_max: calorieNorm + 300, vegetables_percent: 40, coffee_cups: 1, alcohol_units: 0, summary: 'День прошёл неплохо', weekly_advice: 'Добавьте больше овощей' };
                 const entry = { ...analysis, date: new Date().toISOString().split('T')[0] };
                 setHealthData(prev => [...prev, entry]);
                 setCurrentSummary(analysis.summary);
@@ -277,10 +167,7 @@
             <div className="max-w-4xl mx-auto p-4">
                 <header className="mb-6">
                     <h1 className="text-2xl font-bold">🧠 AI Health Tracker</h1>
-                    <p className="text-gray-600">
-                        Профиль: {userProfile.name}, рост {userProfile.height} см, вес {userProfile.weight} кг,
-                        норма {calorieNorm} ккал/день
-                    </p>
+                    <p className="text-gray-600">Профиль: {userProfile.name}, рост {userProfile.height} см, вес {userProfile.weight} кг, норма {calorieNorm} ккал/день</p>
                 </header>
 
                 {(currentSummary || weeklyAdvice) && (
@@ -292,19 +179,8 @@
 
                 <section className="mb-6 bg-white p-4 rounded shadow">
                     <h2 className="font-semibold mb-2">📝 Расскажите о своём дне</h2>
-                    <textarea
-                        className="w-full border p-2 rounded mb-2"
-                        rows={4}
-                        value={dayText}
-                        onChange={e => setDayText(e.target.value)}
-                        placeholder="Сон, настроение, еда, активность..."
-                        disabled={isAnalyzing}
-                    />
-                    <button
-                        className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
-                        onClick={analyzeDay}
-                        disabled={isAnalyzing}
-                    >{isAnalyzing ? 'Анализирую...' : 'Анализировать'}</button>
+                    <textarea className="w-full border p-2 rounded mb-2" rows={4} value={dayText} onChange={e => setDayText(e.target.value)} placeholder="Сон, настроение, еда, активность..." disabled={isAnalyzing} />
+                    <button className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400" onClick={analyzeDay} disabled={isAnalyzing}>{isAnalyzing ? 'Анализирую...' : 'Анализировать'}</button>
                 </section>
 
                 <div className="grid lg:grid-cols-2 gap-6 mb-6">
@@ -329,11 +205,7 @@
                         {healthData.slice(-7).reverse().map((e, i) => (
                             <div key={i} className="border p-3 rounded">
                                 <div className="flex justify-between items-center mb-2">
-                                    <span className="font-medium">
-                                        {new Date(e.date).toLocaleDateString('ru-RU', {
-                                            weekday: 'long', day: 'numeric', month: 'long'
-                                        })}
-                                    </span>
+                                    <span className="font-medium">{new Date(e.date).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
                                     <div className="flex space-x-1 text-xl">
                                         {[...Array(e.coffee_cups)].map((_,i)=><span key={i}>☕</span>)}
                                         {[...Array(e.alcohol_units)].map((_,i)=><span key={i}>🍺</span>)}
