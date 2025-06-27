@@ -1,82 +1,4 @@
-{/* График питания с Error Bars */}
-                        <div className="bg-white p-6 rounded-lg shadow-md">
-                            <h3 className="text-lg font-semibold mb-4 flex items-center">
-                                🍎 Питание и калории (диапазон)
-                            </h3>
-                            
-                            {(() => {
-                                const normMin = Math.round(calorieNorm * 0.85);
-                                const normMax = Math.round(calorieNorm * 1.15);
-                                
-                                const nutritionData = healthData
-                                    .filter(d => d.calories_min > 0 || d.calories_max > 0)
-                                    .map(d => {
-                                        const avg = (d.calories_min + d.calories_max) / 2;
-                                        const errorDown = avg - d.calories_min;
-                                        const errorUp = d.calories_max - avg;
-                                        
-                                        let fill = '#ef4444';
-                                        if (d.vegetables_percent >= 50) fill = '#22c55e';
-                                        else if (d.vegetables_percent >= 30) fill = '#f59e0b';
-                                        
-                                        return {
-                                            day: new Date(d.date).toLocaleDateString('ru-RU', {month: 'short', day: 'numeric'}),
-                                            average: Math.round(avg),
-                                            min: d.calories_min,
-                                            max: d.calories_max,
-                                            errorDown: Math.round(errorDown),
-                                            errorUp: Math.round(errorUp),
-                                            fill: fill,
-                                            vegetables: d.vegetables_percent,
-                                            coffee: d.coffee_cups,
-                                            alcohol: d.alcohol_units,
-                                            normMin: normMin,
-                                            normMax: normMax,
-                                            norm: calorieNorm
-                                        };
-                                    });
-
-                                if (nutritionData.length === 0) {
-                                    return (
-                                        <div className="h-64 flex items-center justify-center text-gray-500">
-                                            📊 Нет данных о питании для отображения
-                                        </div>
-                                    );
-                                }
-
-                                return (
-                                    <ResponsiveContainer width="100%" height={300}>
-                                        <BarChart data={nutritionData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                            <XAxis dataKey="day" stroke="#6b7280" />
-                                            <YAxis 
-                                                stroke="#6b7280"
-                                                domain={[0, 5000]}
-                                                tickFormatter={(value) => `${value}`}
-                                                label={{ value: 'Калории (ккал)', angle: -90, position: 'insideLeft' }}
-                                            />
-                                            
-                                            {/* Зона нормы */}
-                                            <ReferenceLine y={normMin} stroke="#d1d5db" strokeDasharray="5 5" />
-                                            <ReferenceLine y={normMax} stroke="#d1d5db" strokeDasharray="5 5" />
-                                            <ReferenceLine y={calorieNorm} stroke="#9ca3af" strokeWidth={2} strokeDasharray="8 4" />
-                                            
-                                            {/* Столбцы с погрешностями */}
-                                            <Bar 
-                                                dataKey="average" 
-                                                fill={(entry) => entry?.fill || '#ef4444'}
-                                                stroke="#374151"
-                                                strokeWidth={1}
-                                            >
-                                                <ErrorBar dataKey="errorDown" width={4} stroke="#374151" strokeWidth={2} direction="down" />
-                                                <ErrorBar dataKey="errorUp" width={4} stroke="#374151" strokeWidth={2} direction="up" />
-                                            </Bar>
-                                            
-                                            <Tooltip content={({ active, payload, label }) => {
-                                                if (active && payload && payload.length) {
-                                                    const data = payload[0].payload;
-                                                    return (
-                                <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -175,19 +97,21 @@
                     // Пробуем Claude API
                     if (window.claude && typeof window.claude.complete === 'function') {
                         try {
-                            const prompt = `Анализ дня. Рассказ: "${dayText}". Верни ТОЛЬКО JSON:
+                            const prompt = `Анализ дня для здорового мужчины 30 лет, 98кг, 178см. Рассказ: "${dayText}". 
+
+Верни ТОЛЬКО валидный JSON без дополнительного текста:
 {
-  "sleep_quality": число от -2 до 2,
-  "mood": число от -2 до 2,
-  "health_status": число от -2 до 2,
-  "physical_activity": число от 0 до 4,
-  "calories_min": число,
-  "calories_max": число,
-  "vegetables_percent": число 0-100,
-  "coffee_cups": число,
-  "alcohol_units": число,
-  "summary": "краткое описание",
-  "weekly_advice": "совет"
+  "sleep_quality": число от -2 до 2 (качество сна относительно нормы),
+  "mood": число от -2 до 2 (настроение относительно нормы),
+  "health_status": число от -2 до 2 (общее самочувствие),
+  "physical_activity": число от 0 до 4 (0-нет, 1-слабая, 2-нормальная, 3-сильная, 4-экстремальная),
+  "calories_min": число (минимальная оценка калорий за день),
+  "calories_max": число (максимальная оценка калорий за день),
+  "vegetables_percent": число от 0 до 100 (процент овощей в рационе),
+  "coffee_cups": число (количество чашек кофе),
+  "alcohol_units": число (количество единиц алкоголя),
+  "summary": "краткое описание дня одной строкой",
+  "weekly_advice": "краткий совет по образу жизни"
 }`;
 
                             const response = await window.claude.complete(prompt);
@@ -419,12 +343,163 @@
                 });
             };
 
-            // Загрузка Plotly из CDN - УБИРАЕМ
-            // Теперь используем Recharts
-
             const drawNutritionChart = () => {
-                // Этот метод больше не нужен, используем JSX компонент
-                return null;
+                const ctx = nutritionChartRef.current?.getContext('2d');
+                if (!ctx) return;
+
+                if (window.nutritionChart) {
+                    window.nutritionChart.destroy();
+                }
+
+                const labels = healthData.map(d => new Date(d.date).toLocaleDateString('ru-RU', {month: 'short', day: 'numeric'}));
+                
+                // Подготавливаем данные для "свечного" графика
+                const candleData = healthData.map(d => {
+                    let color = 'rgba(239, 68, 68, 0.8)'; // красный по умолчанию
+                    if (d.vegetables_percent >= 50) color = 'rgba(34, 197, 94, 0.8)'; // зеленый
+                    else if (d.vegetables_percent >= 30) color = 'rgba(245, 158, 11, 0.8)'; // желтый
+                    
+                    return {
+                        min: d.calories_min,
+                        max: d.calories_max,
+                        avg: (d.calories_min + d.calories_max) / 2,
+                        color: color,
+                        vegetables: d.vegetables_percent,
+                        coffee: d.coffee_cups,
+                        alcohol: d.alcohol_units
+                    };
+                });
+
+                // Создаем кастомный плагин для отрисовки "свечей"
+                const candlestickPlugin = {
+                    id: 'candlestick',
+                    afterDatasetsDraw: function(chart) {
+                        const ctx = chart.ctx;
+                        const chartArea = chart.chartArea;
+                        const meta = chart.getDatasetMeta(0);
+                        
+                        meta.data.forEach((bar, index) => {
+                            const data = candleData[index];
+                            const x = bar.x;
+                            const barWidth = bar.width;
+                            
+                            // Преобразуем значения калорий в пиксели
+                            const yMin = chart.scales.y.getPixelForValue(data.min);
+                            const yMax = chart.scales.y.getPixelForValue(data.max);
+                            const yAvg = chart.scales.y.getPixelForValue(data.avg);
+                            
+                            // Рисуем "свечу"
+                            ctx.fillStyle = data.color;
+                            ctx.fillRect(x - barWidth/2, yMax, barWidth, yMin - yMax);
+                            
+                            // Рисуем границы
+                            ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+                            ctx.lineWidth = 1;
+                            ctx.strokeRect(x - barWidth/2, yMax, barWidth, yMin - yMax);
+                            
+                            // Рисуем среднюю линию
+                            ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.moveTo(x - barWidth/2, yAvg);
+                            ctx.lineTo(x + barWidth/2, yAvg);
+                            ctx.stroke();
+                            
+                            // Добавляем иконки кофе и алкоголя
+                            let iconY = yMax - 20;
+                            for (let i = 0; i < data.coffee; i++) {
+                                ctx.font = '12px serif';
+                                ctx.fillStyle = 'brown';
+                                ctx.fillText('☕', x - barWidth/2 + (i * 15), iconY);
+                            }
+                            for (let i = 0; i < data.alcohol; i++) {
+                                ctx.font = '12px serif';
+                                ctx.fillStyle = 'orange';
+                                ctx.fillText('🍺', x - barWidth/2 + (data.coffee * 15) + (i * 15), iconY);
+                            }
+                        });
+                    }
+                };
+
+                // Линии нормы калорий
+                const normMin = calorieNorm * 0.85;
+                const normMax = calorieNorm * 1.15;
+
+                window.nutritionChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Калории (диапазон)',
+                            data: candleData.map(d => 0), // Невидимые столбцы для структуры
+                            backgroundColor: 'transparent',
+                            borderColor: 'transparent'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const data = candleData[context.dataIndex];
+                                        return [
+                                            `Калории: ${Math.round(data.min)} - ${Math.round(data.max)}`,
+                                            `Среднее: ${Math.round(data.avg)}`,
+                                            `Овощи: ${Math.round(data.vegetables)}%`,
+                                            `Кофе: ${data.coffee} чашек`,
+                                            `Алкоголь: ${data.alcohol} единиц`
+                                        ];
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                min: Math.min(calorieNorm * 0.5, Math.min(...candleData.map(d => d.min)) - 200),
+                                max: Math.max(calorieNorm * 1.8, Math.max(...candleData.map(d => d.max)) + 200),
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + ' ккал';
+                                    }
+                                }
+                            }
+                        },
+                        annotation: {
+                            annotations: {
+                                normLine: {
+                                    type: 'line',
+                                    yMin: calorieNorm,
+                                    yMax: calorieNorm,
+                                    borderColor: 'rgb(99, 102, 241)',
+                                    borderWidth: 2,
+                                    borderDash: [8, 4]
+                                },
+                                normMinLine: {
+                                    type: 'line',
+                                    yMin: normMin,
+                                    yMax: normMin,
+                                    borderColor: 'rgb(209, 213, 219)',
+                                    borderWidth: 1,
+                                    borderDash: [5, 5]
+                                },
+                                normMaxLine: {
+                                    type: 'line',
+                                    yMin: normMax,
+                                    yMax: normMax,
+                                    borderColor: 'rgb(209, 213, 219)',
+                                    borderWidth: 1,
+                                    borderDash: [5, 5]
+                                }
+                            }
+                        }
+                    },
+                    plugins: [candlestickPlugin]
+                });
             };
 
             const getActivityEmoji = (level) => {
@@ -536,68 +611,6 @@
                                     <span>Мало овощей (&lt;30%)</span>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* История записей */}
-                        <div className="bg-white rounded-lg shadow p-4">
-                            <h3 className="text-lg font-semibold mb-3">📚 История записей</h3>
-                            <div className="space-y-3">
-                                {healthData.slice(-7).reverse().map((entry, index) => (
-                                    <div key={index} className="border border-gray-200 rounded p-3">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <span className="font-medium text-sm">
-                                                {new Date(entry.date).toLocaleDateString('ru-RU', {
-                                                    weekday: 'long',
-                                                    month: 'long',
-                                                    day: 'numeric'
-                                                })}
-                                            </span>
-                                            <div className="flex space-x-1 text-sm">
-                                                {[...Array(entry.coffee_cups)].map((_, i) => (
-                                                    <span key={i}>☕</span>
-                                                ))}
-                                                {[...Array(entry.alcohol_units)].map((_, i) => (
-                                                    <span key={i}>🍺</span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                                            <div>
-                                                <span className="text-gray-500">Сон:</span> 
-                                                <span className={`ml-1 ${entry.sleep_quality >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {entry.sleep_quality > 0 ? '+' : ''}{entry.sleep_quality}
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-500">Настроение:</span>
-                                                <span className={`ml-1 ${entry.mood >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {entry.mood > 0 ? '+' : ''}{entry.mood}
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-500">Активность:</span>
-                                                <span className="ml-1">{getActivityEmoji(entry.physical_activity)}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-500">Калории:</span>
-                                                <span className="ml-1">{Math.round(entry.calories_min)}-{Math.round(entry.calories_max)}</span>
-                                            </div>
-                                        </div>
-                                        
-                                        {entry.summary && (
-                                            <p className="text-sm text-gray-600 mt-2 italic">"{entry.summary}"</p>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        ReactDOM.render(<HealthTracker />, document.getElementById('root'));
-    </script>
-</body>
-</html>
+                            <div className="mt-2 text-center text-xs text-gray-600">
+                                <p>Синяя пунктирная линия — норма калорий ({calorieNorm} ккал/день)</p>
+                                <p>Серые пунктирные линии — допустим
