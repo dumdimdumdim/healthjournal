@@ -2,12 +2,12 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>AI Health Tracker</title>
-  <!-- React 17 -->
+  <!-- React 17 и ReactDOM 17 -->
   <script crossorigin src="https://unpkg.com/react@17/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-  <!-- Babel for JSX in-browser -->
+  <!-- Babel для JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <!-- TailwindCSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -26,49 +26,26 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    const HF_TOKEN = "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";
-
-    // Вызываем HF модель flan-t5-small для извлечения всех метрик
-    async function analyzeWithLLM(text) {
-      const prompt = `
-Анализ дня. Рассказ: "${text}"
-Верни ТОЛЬКО JSON в формате:
-{
-  "sleep_quality": число -2..2,
-  "mood": число -2..2,
-  "health_status": число -2..2,
-  "physical_activity": число 0..4,
-  "calories_min": число,
-  "calories_max": число,
-  "vegetables_percent": число 0..100,
-  "coffee_cups": число,
-  "alcohol_units": число,
-  "summary": "короткое резюме",
-  "weekly_advice": "рекомендация"
-}`;
-      const res = await fetch("https://api-inference.huggingface.co/models/google/flan-t5-small", {
+    // Обёртка вызова нашей функции на Vercel
+    async function analyzeWithProxy(text) {
+      const res = await fetch("/api/analyze", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${HF_TOKEN}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ inputs: prompt })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
       });
-      const json = await res.json();
-      const txt = json.generated_text || (Array.isArray(json) && json[0]?.generated_text);
-      const match = txt.match(/\{[\s\S]*\}/);
-      return match ? JSON.parse(match[0]) : null;
+      if (!res.ok) throw new Error("Inference failed: " + res.status);
+      return res.json();
     }
 
     function HealthTracker() {
-      // профиль (жёстко)
-      const userProfile = { weight: 98, height: 178, age: 30, name: "Пользователь" };
-      const bmr = 88.362 + 13.397 * userProfile.weight + 4.799 * userProfile.height - 5.677 * userProfile.age;
+      // Хардкод профиль
+      const user = { weight:98, height:178, age:30, name:"Пользователь" };
+      const bmr = 88.362 + 13.397*user.weight + 4.799*user.height - 5.677*user.age;
       const calorieNorm = Math.round(bmr * 1.55);
 
-      const [dayText, setDayText] = useState("");
-      const [isAnalyzing, setIsAnalyzing] = useState(false);
-      const [data, setData] = useState([]);
+      const [text, setText] = useState("");
+      const [isLoading, setIsLoading] = useState(false);
+      const [entries, setEntries] = useState([]);
       const [weeklySummary, setWeeklySummary] = useState("");
       const [weeklyAdvice, setWeeklyAdvice] = useState("");
 
@@ -76,107 +53,112 @@
       const refActivity = useRef();
       const refCalories = useRef();
 
-      // После обновления данных строим графики
+      // После добавления новой записи — строим графики и резюме
       useEffect(() => {
-        if (!data.length) return;
-        drawHealthChart();
-        drawActivityChart();
-        drawCaloriesChart();
-      }, [data]);
-
-      // Расчёт резюме за неделю
-      useEffect(() => {
-        if (data.length < 7) return;
-        const last7 = data.slice(-7);
-        const sum = last7.reduce((acc, e) => {
-          ["sleep_quality","mood","health_status","physical_activity","vegetables_percent","coffee_cups","alcohol_units"]
-            .forEach(k => acc[k] = (acc[k]||0) + e[k]);
-          return acc;
-        }, {});
-        const n = last7.length;
-        setWeeklySummary(
-          `За неделю: сон ${(sum.sleep_quality/n).toFixed(1)}, настроение ${(sum.mood/n).toFixed(1)}, здоровье ${(sum.health_status/n).toFixed(1)}, активность ${(sum.physical_activity/n).toFixed(1)}, овощи ${Math.round(sum.vegetables_percent/n)}%, ☕ ${(sum.coffee_cups/n).toFixed(1)}, 🍺 ${(sum.alcohol_units/n).toFixed(1)}`
-        );
-        setWeeklyAdvice(last7[last7.length-1].weekly_advice);
-      }, [data]);
-
-      // Функции рисования графиков
-      function drawHealthChart() {
-        const ctx = refHealth.current.getContext("2d");
-        if (window.ch1) window.ch1.destroy();
-        window.ch1 = new Chart(ctx, {
-          type: "line",
-          data: {
-            labels: data.map(d=>d.date.slice(5).replace("-",".")),
-            datasets: [
-              { label:"Сон", data:data.map(d=>d.sleep_quality), borderColor:"#3b82f6", fill:false },
-              { label:"Настроение", data:data.map(d=>d.mood), borderColor:"#22c55e", fill:false },
-              { label:"Здоровье", data:data.map(d=>d.health_status), borderColor:"#a855f7", fill:false },
+        if (!entries.length) return;
+        // График сон/настроение/здоровье
+        const ctx1 = refHealth.current.getContext("2d");
+        if(window.ch1) window.ch1.destroy();
+        window.ch1 = new Chart(ctx1, {
+          type:"line",
+          data:{
+            labels: entries.map(e=>e.date.slice(5).replace("-",".")),
+            datasets:[
+              { label:"Сон", data:entries.map(e=>e.sleep_quality), borderColor:"#3b82f6", fill:false },
+              { label:"Настроение", data:entries.map(e=>e.mood), borderColor:"#22c55e", fill:false },
+              { label:"Здоровье", data:entries.map(e=>e.health_status), borderColor:"#a855f7", fill:false },
             ]
           },
-          options:{ responsive:true, scales:{ y:{ min:-2,max:2, ticks:{ stepSize:1 } } } }
+          options:{responsive:true, scales:{y:{min:-2,max:2, ticks:{stepSize:1}}}}
         });
-      }
-      function drawActivityChart() {
-        const ctx = refActivity.current.getContext("2d");
-        if (window.ch2) window.ch2.destroy();
-        window.ch2 = new Chart(ctx, {
-          type: "bar",
-          data: {
-            labels: data.map(d=>d.date.slice(5).replace("-",".")),
-            datasets: [{
+        // График активности
+        const ctx2 = refActivity.current.getContext("2d");
+        if(window.ch2) window.ch2.destroy();
+        window.ch2 = new Chart(ctx2, {
+          type:"bar",
+          data:{
+            labels: entries.map(e=>e.date.slice(5).replace("-",".")),
+            datasets:[{
               label:"Активность",
-              data:data.map(d=>d.physical_activity),
-              backgroundColor:data.map(d=>{
-                const v=d.physical_activity;
+              data:entries.map(e=>e.physical_activity),
+              backgroundColor: entries.map(e=>{
+                const v=e.physical_activity;
                 return v===0?"#9ca3af":v===1?"#22c55e":v===2?"#3b82f6":v===3?"#f59e0b":"#ef4444";
               })
             }]
           },
-          options:{ responsive:true, scales:{ y:{ min:0,max:4, ticks:{ stepSize:1 } } } }
+          options:{responsive:true, scales:{y:{min:0,max:4, ticks:{stepSize:1}}}}
         });
-      }
-      function drawCaloriesChart() {
+        // График калорий (Plotly)
+        const dates = entries.map(e=>e.date.slice(5).replace("-","."));
+        const mins = entries.map(e=>e.calories_min);
+        const maxs = entries.map(e=>e.calories_max);
+        const centers = entries.map((e,i)=>(mins[i]+maxs[i])/2);
+        const errUp = entries.map((e,i)=>maxs[i]-centers[i]);
+        const errDn = entries.map((e,i)=>centers[i]-mins[i]);
+        const colors = entries.map(e=> e.vegetables_percent>=50?'#22c55e':e.vegetables_percent>=30?'#f59e0b':'#ef4444');
         const trace = {
-          x: data.map(d=>d.date.slice(5).replace("-",".")),
-          open: data.map(d=>d.calories_min),
-          close:data.map(d=>d.calories_max),
-          high:data.map(d=>d.calories_max),
-          low:data.map(d=>d.calories_min),
-          type:"candlestick",
-          increasing:{ line:{ color:"#22c55e" }},
-          decreasing:{ line:{ color:"#ef4444" }},
+          x: dates, y: centers, mode:"markers",
+          marker:{color:colors, size:10},
+          error_y:{type:"data", array:errUp, arrayminus:errDn},
+          hovertemplate:
+            `<b>%{x}</b><br>`+
+            `Калории: %{y-error_y.arrayminus:.0f}–%{y+error_y.array:.0f} ккал<br>`+
+            `Овощи: %{customdata[0]}%<br>☕ %{customdata[1]}  🍺 %{customdata[2]}<extra></extra>`,
+          customdata: entries.map(e=>[e.vegetables_percent,e.coffee_cups,e.alcohol_units])
         };
-        const normMin = Math.round(calorieNorm*0.85), normMax = Math.round(calorieNorm*1.15);
         const layout = {
-          xaxis:{ title:"День" },
-          yaxis:{ title:"ккал", range:[normMin-200,normMax+200] },
-          shapes:[{ type:"rect", xref:"paper", yref:"y", x0:0,x1:1, y0:normMin,y1:normMax, fillcolor:"rgba(200,255,200,0.3)", line:{width:0} }],
-          margin:{ t:20,b:40,l:50,r:20 }
+          shapes:[{
+            type:"rect", xref:"paper", yref:"y",
+            x0:0,x1:1, y0:calorieNorm*0.85, y1:calorieNorm*1.15,
+            fillcolor:"rgba(200,255,200,0.3)", line:{width:0}
+          }],
+          margin:{t:20,b:40,l:50,r:20}, yaxis:{title:"ккал"}, xaxis:{title:"День"}
         };
-        Plotly.newPlot(refCalories.current, [trace], layout, { displayModeBar:false, responsive:true });
-      }
+        Plotly.react(refCalories.current, [trace], layout, {displayModeBar:false, responsive:true});
 
-      // Анализ дня
+        // Еженедельное резюме
+        if(entries.length>=7){
+          const last7 = entries.slice(-7);
+          const agg = last7.reduce((a,e)=>{
+            a.sleep_quality+=e.sleep_quality;
+            a.mood+=e.mood;
+            a.health_status+=e.health_status;
+            a.physical_activity+=e.physical_activity;
+            a.vegetables_percent+=e.vegetables_percent;
+            a.coffee_cups+=e.coffee_cups;
+            a.alcohol_units+=e.alcohol_units;
+            return a;
+          },{sleep_quality:0,mood:0,health_status:0,physical_activity:0,vegetables_percent:0,coffee_cups:0,alcohol_units:0});
+          const n=7;
+          setWeeklySummary(
+            `За неделю: сон ${(agg.sleep_quality/n).toFixed(1)}, настроение ${(agg.mood/n).toFixed(1)}, здоровье ${(agg.health_status/n).toFixed(1)}, активность ${(agg.physical_activity/n).toFixed(1)}, овощи ${Math.round(agg.vegetables_percent/n)}%, ☕ ${(agg.coffee_cups/n).toFixed(1)}, 🍺 ${(agg.alcohol_units/n).toFixed(1)}`
+          );
+          setWeeklyAdvice(last7[last7.length-1].weekly_advice);
+        }
+      }, [entries]);
+
       const handleAnalyze = async () => {
-        if (!dayText.trim()) return alert("Опишите день.");
-        setIsAnalyzing(true);
+        if (!text.trim()) return alert("Опишите день.");
+        setIsLoading(true);
         try {
-          const res = await analyzeWithLLM(dayText);
-          res.date = new Date().toISOString().split("T")[0];
-          setData([...data, res]);
-          setDayText("");
-        } catch(e) {
+          const llm = await analyzeWithProxy(text);
+          const parsed = JSON.parse((llm.generated_text||llm[0].generated_text).match(/\{[\s\S]*\}/)[0]);
+          parsed.date = new Date().toISOString().split("T")[0];
+          setEntries([...entries, parsed]);
+        } catch (e) {
+          console.error(e);
           alert("Ошибка анализа");
         }
-        setIsAnalyzing(false);
+        setIsLoading(false);
+        setText("");
       };
 
       return (
         <div className="max-w-4xl mx-auto space-y-6">
           <header className="bg-white p-4 rounded shadow">
             <h1 className="text-2xl font-bold">🧠 AI Health Tracker</h1>
-            <p>Профиль: {userProfile.name}, {userProfile.height} см, {userProfile.weight} кг — норма {calorieNorm} ккал/день</p>
+            <p>Профиль: {user.name}, {user.height} см, {user.weight} кг — норма {calorieNorm} ккал/день</p>
           </header>
 
           {weeklySummary && (
@@ -186,25 +168,23 @@
             </div>
           )}
 
-          <section className="bg-white p-4 rounded shadow">
+          <div className="bg-white p-4 rounded shadow">
             <textarea
               className="w-full border p-2 rounded mb-2"
-              rows={4}
-              value={dayText}
-              onChange={e=>setDayText(e.target.value)}
+              rows={4} value={text}
+              onChange={e=>setText(e.target.value)}
               placeholder="Сон, настроение, еда, активность..."
-              disabled={isAnalyzing}
             />
             <button
               onClick={handleAnalyze}
-              disabled={isAnalyzing}
+              disabled={isLoading}
               className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
             >
-              {isAnalyzing ? "Анализирую…" : "Анализировать"}
+              {isLoading ? "Анализирую…" : "Анализировать"}
             </button>
-          </section>
+          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid lg:grid-cols-2 gap-6">
             <div className="bg-white p-4 rounded shadow">
               <h3 className="font-semibold mb-2">📈 Самочувствие</h3>
               <div className="chart-container"><canvas ref={refHealth}></canvas></div>
@@ -222,7 +202,7 @@
 
           <section className="bg-white p-4 rounded shadow">
             <h3 className="font-semibold mb-3">📚 История записей</h3>
-            {data.slice(-7).reverse().map((e,i)=>(
+            {entries.slice(-7).reverse().map((e,i)=>(
               <div key={i} className="border p-3 rounded mb-2">
                 <div className="flex justify-between">
                   <span className="font-medium">{new Date(e.date).toLocaleDateString()}</span>
