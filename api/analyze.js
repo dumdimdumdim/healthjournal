@@ -1,45 +1,47 @@
 // файл: api/analyze.js
 
-export async function handler(event) {
-  console.log("🧠 analyze.js invoked, body:", event.body);
-
-  let text;
-  try {
-    ({ text } = JSON.parse(event.body || "{}"));
-  } catch (err) {
-    console.error("❌ JSON.parse error:", err);
-    return { statusCode: 400, body: JSON.stringify({ error: "Bad JSON" }) };
+export default async function handler(req, res) {
+  // Разрешаем только POST
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method Not Allowed" });
+    return;
   }
+
+  const { text } = req.body || {};
   if (!text) {
-    return { statusCode: 400, body: JSON.stringify({ error: "No text provided" }) };
+    res.status(400).json({ error: "No text provided" });
+    return;
   }
 
+  console.log("🧠 analyze.js invoked, text:", text);
+
   try {
-    const response = await fetch(
+    const hfRes = await fetch(
       "https://api-inference.huggingface.co/models/google/flan-t5-small",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.HF_API_TOKEN}`
+          "Authorization": `Bearer ${process.env.HF_API_TOKEN}`,
         },
         body: JSON.stringify({
-          inputs: `Анализ дня: "${text}". Верни только JSON с метриками.`
-        })
+          inputs: `Анализ дня: "${text}". Верни ТОЛЬКО JSON с метриками.`,
+        }),
       }
     );
 
-    if (!response.ok) {
-      console.error("❌ HF response status:", response.status, await response.text());
-      return { statusCode: response.status, body: JSON.stringify({ error: "HF inference failed" }) };
+    if (!hfRes.ok) {
+      const errorText = await hfRes.text();
+      console.error("❌ HF Error:", hfRes.status, errorText);
+      return res.status(hfRes.status).json({ error: "HF inference failed" });
     }
 
-    const json = await response.json();
-    console.log("✅ HF returned:", json);
-    return { statusCode: 200, body: JSON.stringify(json) };
+    const data = await hfRes.json();
+    console.log("✅ HF returned:", data);
+    return res.status(200).json(data);
 
   } catch (err) {
-    console.error("❌ Fetch to HF failed:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: "Inference error" }) };
+    console.error("❌ Fetch error:", err);
+    return res.status(500).json({ error: "Inference error" });
   }
 }
