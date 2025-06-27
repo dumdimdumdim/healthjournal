@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Diary App</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+       import React, { useState } from 'react';
+import { Calendar, Mic, MicOff, Plus, TrendingUp, Heart, Moon, Utensils, Activity, Smile, FileText } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+
+const HealthDiary = () => {
+  // Профиль пользователя
+  const [userProfile, setUserProfile] = useState({
+    height: 178,
+    weight: 87,
+    age: 30,
+    gender: 'male'
+  });
+
+  // Функция для создания моковых данных (MOCK_DATA - легко найти и удалить)
+  const createMockData = () => {
+    const mockEntries = [];
+    const today = new Date();
+    
+    const mockTexts = [
+      "Спал отлично 8 часов. Завтрак - овсянка с ягодами и орехами, обед - куриный суп с овощами, ужин - запеченная рыба с брокколи. Настроение замечательное! Ходил в спортзал, силовая тренировка 1 час.", // MOCK_DATA
+      "Спал нормально 7 часов. Завтрак - яичница с тостами, обед - паста с томатным соусом, ужин - салат цезарь. Настроение хорошее. Прогулка в парке 40 минут.", // MOCK_DATA
+      "Спал плохо, всего 5 часов. Завтрак - кофе с круассаном, обед - бургер с картошкой фри, ужин - пицца маргарита. Настроение так себе. Спорта не было.", // MOCK_DATA
+      "Сон как обычно, 6.5 часов. Завтрак - смузи с бананом и шпинатом, обед - гречка с курицей и овощами, ужин - творог с фруктами. Настроение стабильное. Йога 30 минут.", // MOCK_DATA
+      "Спал хорошо 7.5 часов. Завтрак - мюсли с молоком, обед - борщ с хлебом, ужин - стейк с овощами гриль. Настроение отличное! Плавание в бассейне 45 минут.", // MOCK_DATA
+      "Спал плохо, 4 часа из-за работы. Завтрак пропустил, обед - сэндвич из автомата, ужин - лапша быстрого приготовления. Настроение плохое. Физической активности не было.", // MOCK_DATA
+      "Спал нормально 6 часов. Завтрак - блинчики с медом, обед - суши сет, ужин - овощное рагу с киноа. Настроение хорошее. Велопрогулка 1 час.", // MOCK_DATA
+      "Сон отличный 9 часов! Завтрак - авокадо тост с яйцом, обед - тыквенный суп с семечками, ужин - запеченные овощи с хумусом. Настроение великолепное! Пилатес 40 минут.", // MOCK_DATA
+      "Спал как обычно 7 часов. Завтрак - каша на молоке, обед - плов с мясом, ужин - рыбные котлеты с пюре. Настроение нормальное. Прогулка с собакой 30 минут.", // MOCK_DATA
+      "Спал хорошо 8 часов. Завтрак - фруктовый салат с йогуртом, обед - лосось с рисом и овощами, ужин - греческий салат. Настроение отличное! Кроссфит тренировка 50 минут." // MOCK_DATA
+    ];
+
+    const mockAnalyses = [
+      { sleep: { quality: "намного лучше", duration: 8 }, meals: { estimated_calories: 1800, min_calories: 1700, max_calories: 1900, vegetable_ratio: 0.7 }, physical_activity: { level: "сильная" }, mood: { level: "намного лучше" }, general_wellbeing: { level: "намного лучше" }, additional: {} }, // MOCK_DATA
+      { sleep: { quality: "лучше", duration: 7 }, meals: { estimated_calories: 2000, min_calories: 1900, max_calories: 2100, vegetable_ratio: 0.4 }, physical_activity: { level: "обычная" }, mood: { level: "лучше" }, general_wellbeing: { level: "лучше" }, additional: {} }, // MOCK_DATA
+      { sleep: { quality: "хуже", duration: 5 }, meals: { estimated_calories: 2400, min_calories: 2300, max_calories: 2500, vegetable_ratio: 0.1 }, physical_activity: { level: "не было" }, mood: { level: "хуже" }, general_wellbeing: { level: "хуже" }, additional: {} }, // MOCK_DATA
+      { sleep: { quality: "как обычно", duration: 6.5 }, meals: { estimated_calories: 1600, min_calories: 1500, max_calories: 1700, vegetable_ratio: 0.8 }, physical_activity: { level: "слабая" }, mood: { level: "как обычно" }, general_wellbeing: { level: "как обычно" }, additional: {} }, // MOCK_DATA
+      { sleep: { quality: "лучше", duration: 7.5 }, meals: { estimated_calories: 2200, min_calories: 2100, max_calories: 2300, vegetable_ratio: 0.6 }, physical_activity: { level: "сильная" }, mood: { level: "намного лучше" }, general_wellbeing: { level: "лучше" }, additional: {} }, // MOCK_DATA
+      { sleep: { quality: "намного хуже", duration: 4 }, meals: { estimated_calories: 1400, min_calories: 1300, max_calories: 1500, vegetable_ratio: 0.05 }, physical_activity: { level: "не было" }, mood: { level: "намного хуже" }, general_wellbeing: { level: "намного хуже" }, additional: {} }, // MOCK_DATA
+      { sleep: { quality: "как обычно", duration: 6 }, meals: { estimated_calories: 1900, min_calories: 1800, max_calories: 2000, vegetable_ratio: 0.45 }, physical_activity: { level: "обычная" }, mood: { level: "лучше" }, general_wellbeing: { level: "как обычно" }, additional: {} }, // MOCK_DATA
+      { sleep: { quality: "намного лучше", duration: 9 }, meals: { estimated_calories: 1700, min_calories: 1600, max_calories: 1800, vegetable_ratio: 0.9 }, physical_activity: { level: "обычная" }, mood: { level: "намного лучше" }, general_wellbeing: { level: "намного лучше" }, additional: {} }, // MOCK_DATA
+      { sleep: { quality: "как обычно", duration: 7 }, meals: { estimated_calories: 2100, min_calories: 2000, max_calories: 2200, vegetable_ratio: 0.3 }, physical_activity: { level: "слабая" }, mood: { level: "как обычно" }, general_wellbeing: { level: "как обычно" }, additional: {} }, // MOCK_DATA
+      { sleep: { quality: "лучше", duration: 8 }, meals: { estimated_calories: 1850, min_calories: 1750, max_calories: 1950, vegetable_ratio: 0.75 }, physical_activity: { level: "сильная" }, mood: { level: "намного лучше" }, general_wellbeing: { level: "лучше" }, additional: {} } // MOCK_DATA
+    ];
+
+    for (let i = 0; i < 10; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - (9 - i));
+      
+      mockEntries.push({
+        id: `mock_${i}`, // MOCK_DATA - префикс для легкого поиска
+        date: date.toISOString().split('T')[0],
+        text: mockTexts[i],
+        analysis: mockAnalyses[i],
+        timestamp: date.toISOString(),
+        loading: false,
+        isMockData: true // MOCK_DATA - флаг для идентификации
+      });
+    }
+    
+    return mockEntries;
+  };
+
+  const [entries, setEntries] = useState(createMockData()); // MOCK_DATA - инициализация с моковыми данными
+  const [currentEntry, setCurrentEntry] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [activeTab, setActiveTab] = useState('entry');
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+
+  // Функция для удаления всех моковых данных
+  const clearMockData = () => {
+    setEntries(prev => prev.filter(entry => !entry.isMockData));
+  };
+
+  const getDefaultAnalysis = () => {
+    return {
+      sleep: { quality: "как обычно", duration: null, notes: null },
+      meals: { 
+        breakfast: null, 
+        lunch: null, 
+        dinner: null, 
+        snacks: null, 
+        min_calories: null,
+        max_calories: null,
+        estimated_calories: null,
+        vegetable_ratio: 0.0,
+        quality: null 
+      },
+      physical_activity: { level: "не было", description: null },
+      mood: { level: "как обычно", tags: [], notes: null },
+      general_wellbeing: { level: "как обычно", notes: null },
+      additional: { medications: null, special_events: null, problems: null }
+    };
+  };
+
+  const analyzeEntry = async (text) => {
+    if (!text.trim()) return getDefaultAnalysis();
+
+    const promptText = [
+      "Проанализируй следующую запись из дневника здоровья. Человек рассказывает о своем дне в свободной форме.",
+      "",
+      "Запись: \"" + text + "\"",
+      "",
+      "ВАЖНО: Твой ответ должен быть ТОЛЬКО валидным JSON объектом, без дополнительного текста, без обратных кавычек, без слов json в начале.",
+      "",
+      "Формат ответа:",
+      "{",
+      "  \"sleep\": {",
+      "    \"quality\": \"как обычно\",",
+      "    \"duration\": null,",
+      "    \"notes\": null",
+      "  },",
+      "  \"meals\": {",
+      "    \"breakfast\": null,",
+      "    \"lunch\": null,",
+      "    \"dinner\": null,",
+      "    \"snacks\": null,",
+      "    \"min_calories\": null,",
+      "    \"max_calories\": null,",
+      "    \"estimated_calories\": null,",
+      "    \"vegetable_ratio\": 0.0,",
+      "    \"quality\": null",
+      "  },",
+      "  \"physical_activity\": {",
+      "    \"level\": \"не было\",",
+      "    \"description\": null",
+      "  },",
+      "  \"mood\": {",
+      "    \"level\": \"как обычно\",",
+      "    \"tags\": [],",
+      "    \"notes\": null",
+      "  },",
+      "  \"general_wellbeing\": {",
+      "    \"level\": \"как обычно\",",
+      "    \"notes\": null",
+      "  },",
+      "  \"additional\": {",
+      "    \"medications\": null,",
+      "    \"special_events\": null,",
+      "    \"problems\": null",
+      "  }",
+      "}",
+      "",
+      "Правила анализа:",
+      "- quality и level могут быть: намного хуже, хуже, как обычно, лучше, намного лучше",
+      "- physical_activity level: не было, слабая, обычная, сильная",
+      "- Если что-то не упоминается, ставь null или дефолтные значения",
+      "- min_calories - минимальная оценка калорий за день",
+      "- max_calories - максимальная оценка калорий за день",
+      "- estimated_calories - средняя оценка калорий",
+      "- vegetable_ratio - доля овощей в рационе от 0.0 до 1.0",
+      "- Анализируй общий тон и контекст, а не только ключевые слова",
+      "- Оценивай калории реалистично: завтрак 300-600, обед 400-800, ужин 400-700, перекусы 100-300",
+      "",
+      "Отвечай ТОЛЬКО JSON:"
+    ].join('\n');
+
+    try {
+      const response = await window.claude.complete(promptText);
+      const cleanResponse = response.trim().replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      const parsed = JSON.parse(cleanResponse);
+      return parsed;
+    } catch (error) {
+      console.error('Ошибка анализа:', error);
+      return getDefaultAnalysis();
+    }
+  };
+
+  const handleSubmitEntry = async () => {
+    if (!currentEntry.trim()) return;
+
+    const loadingEntry = {
+      id: Date.now(),
+      date: selectedDate,
+      text: currentEntry,
+      analysis: null,
+      timestamp: new Date().toISOString(),
+      loading: true
+    };
+
+    setEntries(prev => [...prev, loadingEntry]);
+    setCurrentEntry('');
+
+    try {
+      const analysis = await analyzeEntry(currentEntry);
+      
+      setEntries(prev => prev.map(entry => 
+        entry.id === loadingEntry.id 
+          ? { ...entry, analysis, loading: false }
+          : entry
+      ));
+    } catch (error) {
+      console.error('Ошибка при анализе:', error);
+      setEntries(prev => prev.map(entry => 
+        entry.id === loadingEntry.id 
+          ? { ...entry, analysis: getDefaultAnalysis(), loading: false }
+          : entry
+      ));
+    }
+  };
+
+  const handleVoiceInput = () => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
+      recognition.lang = 'ru-RU';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      if (isRecording) {
+        recognition.stop();
+        setIsRecording(false);
+      } else {
+        recognition.start();
+        setIsRecording(true);
+
+        recognition.onresult = (event) => {
+          let transcript = '';
+          for (let i = 0; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+          }
+          setCurrentEntry(transcript);
+        };
+
+        recognition.onerror = () => {
+          setIsRecording(false);
+        };
+
+        recognition.onend = () => {
+          setIsRecording(false);
+        };
+      }
+    } else {
+      alert('Голосовой ввод не поддерживается в вашем браузере');
+    }
+  };
+
+  // Функция для расчета рекомендуемых калорий
+  const getRecommendedCalories = () => {
+    const { height, weight, age, gender } = userProfile;
+    
+    // Формула Mifflin-St Jeor
+    let bmr;
+    if (gender === 'male') {
+      bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+    } else {
+      bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+    }
+    
+    // Умножаем на коэффициент активности (1.5 - умеренная активность)
+    const tdee = bmr * 1.5;
+    
+    return {
+      min: Math.round(tdee - 200), // -200 для похудения
+      max: Math.round(tdee + 200), // +200 для набора массы
+      maintenance: Math.round(tdee) // поддержание веса
+    };
+  };
+
+  const getChartData = () => {
+    const validEntries = entries.filter(entry => !entry.loading && entry.analysis);
+    const last7Days = validEntries.slice(-7);
+    
+    return last7Days.map(entry => {
+      // Новая система оценок: -2, -1, 0, +1, +2
+      const levelToScore = (level) => {
+        if (level === 'намного хуже') return -2;
+        if (level === 'хуже') return -1;
+        if (level === 'как обычно') return 0;
+        if (level === 'лучше') return 1;
+        if (level === 'намного лучше') return 2;
+        return 0;
+      };
+
+      const activityToScore = (level) => {
+        if (level === 'не было') return 0;
+        if (level === 'слабая') return 1;
+        if (level === 'обычная') return 2;
+        if (level === 'сильная') return 3;
+        return 0;
+      };
+
+      const entryDate = new Date(entry.date);
+      const dateStr = entryDate.toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' });
+
+      return {
+        date: dateStr,
+        сон: levelToScore(entry.analysis.sleep && entry.analysis.sleep.quality),
+        настроение: levelToScore(entry.analysis.mood && entry.analysis.mood.level),
+        самочувствие: levelToScore(entry.analysis.general_wellbeing && entry.analysis.general_wellbeing.level),
+        активность: activityToScore(entry.analysis.physical_activity && entry.analysis.physical_activity.level),
+        калории: (entry.analysis.meals && entry.analysis.meals.estimated_calories) || 0
+      };
+    });
+  };
+
+  // Функция для генерации резюме недели
+  const getWeeklySummary = () => {
+    const chartData = getChartData();
+    if (chartData.length === 0) return { summary: "Недостаточно данных", recommendation: "Добавьте записи для анализа" };
+    
+    const avgSleep = chartData.reduce((acc, d) => acc + d.сон, 0) / chartData.length;
+    const avgMood = chartData.reduce((acc, d) => acc + d.настроение, 0) / chartData.length;
+    const avgWellbeing = chartData.reduce((acc, d) => acc + d.самочувствие, 0) / chartData.length;
+    const activeDays = chartData.filter(d => d.активность > 0).length;
+    
+    let summary = "";
+    let recommendation = "";
+    
+    // Анализ общего состояния
+    const overallScore = (avgSleep + avgMood + avgWellbeing) / 3;
+    
+    if (overallScore >= 1) {
+      summary = "Отличная неделя! Показатели выше обычного.";
+    } else if (overallScore >= 0) {
+      summary = "Стабильная неделя, показатели в норме.";
+    } else if (overallScore >= -1) {
+      summary = "Неделя ниже обычного, есть что улучшить.";
+    } else {
+      summary = "Тяжелая неделя, показатели значительно снижены.";
+    }
+    
+    // Рекомендации
+    const recommendations = [];
+    
+    if (avgSleep < 0) {
+      recommendations.push("улучшить режим сна");
+    }
+    if (avgMood < 0) {
+      recommendations.push("уделить внимание эмоциональному состоянию");
+    }
+    if (activeDays < 3) {
+      recommendations.push("увеличить физическую активность");
+    }
+    if (avgWellbeing < 0) {
+      recommendations.push("обратить внимание на общее самочувствие");
+    }
+    
+    if (recommendations.length === 0) {
+      recommendation = "Продолжайте в том же духе! Все показатели в норме.";
+    } else {
+      recommendation = "Рекомендации: " + recommendations.join(", ") + ".";
+    }
+    
+    return { summary, recommendation };
+  };
+
+  const getCandlestickData = () => {
+    const validEntries = entries.filter(entry => !entry.loading && entry.analysis && entry.analysis.meals);
+    const last7Days = validEntries.slice(-7);
+    
+    return last7Days.map(entry => {
+      const meals = entry.analysis.meals;
+      const minCal = meals.min_calories || meals.estimated_calories || 0;
+      const maxCal = meals.max_calories || meals.estimated_calories || 0;
+      const avgCal = meals.estimated_calories || 0;
+      const vegRatio = meals.vegetable_ratio || 0;
+      
+      // Новые границы для овощей
+      let candleColor = '#ef4444'; // красный для <30%
+      if (vegRatio >= 0.5) {
+        candleColor = '#10b981'; // зеленый для >=50%
+      } else if (vegRatio >= 0.3) {
+        candleColor = '#f59e0b'; // желтый для 30-50%
+      }
+
+      const entryDate = new Date(entry.date);
+      const dateStr = entryDate.toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' });
+
+      return {
+        date: dateStr,
+        low: Math.min(minCal, avgCal),
+        high: Math.max(maxCal, avgCal),
+        open: minCal || avgCal,
+        close: maxCal || avgCal,
+        average: avgCal,
+        vegetableRatio: vegRatio,
+        color: candleColor
+      };
+    });
+  };
+
+  const chartData = getChartData();
+  const candlestickData = getCandlestickData();
+
+  const CandlestickChart = ({ data }) => {
+    if (!data || data.length === 0) return null;
+
+    const recommendedCals = getRecommendedCalories();
+    const chartHeight = 300;
+    const chartPadding = 40;
+    
+    // Определяем диапазон графика с запасом
+    const allCalories = data.flatMap(d => [d.low, d.high]);
+    const minDataCalories = Math.min(...allCalories);
+    const maxDataCalories = Math.max(...allCalories);
+    
+    // Добавляем запас к диапазону
+    const chartMin = Math.max(0, Math.min(minDataCalories - 500, recommendedCals.min - 500));
+    const chartMax = Math.max(maxDataCalories + 500, recommendedCals.max + 500);
+    const chartRange = chartMax - chartMin;
+    
+    // Создаем линии сетки с шагом 500 калорий
+    const gridLines = [];
+    const gridStep = 500;
+    const startGrid = Math.ceil(chartMin / gridStep) * gridStep;
+    for (let i = startGrid; i <= chartMax; i += gridStep) {
+      gridLines.push(i);
+    }
+
+    return (
+      <div className="relative" style={{ height: chartHeight + 100 }}>
+        {/* Рекомендуемый диапазон калорий (светло-зеленый фон) */}
+        <div 
+          className="absolute left-0 right-0 bg-green-100 bg-opacity-70 border-l-4 border-green-500"
+          style={{ 
+            top: chartPadding + ((chartMax - recommendedCals.max) / chartRange) * chartHeight + 'px',
+            height: ((recommendedCals.max - recommendedCals.min) / chartRange) * chartHeight + 'px',
+            paddingLeft: '50px'
+          }}
+        >
+          <div className="text-xs text-green-700 font-medium pt-1 pl-2">
+            Рекомендуемый интервал: {recommendedCals.min}-{recommendedCals.max} ккал
+          </div>
+        </div>
+        
+        {/* Сетка и подписи оси Y */}
+        <div 
+          className="absolute left-0 right-0"
+          style={{ top: chartPadding + 'px', height: chartHeight + 'px' }}
+        >
+          {gridLines.map((value, index) => {
+            const linePosition = ((chartMax - value) / chartRange) * chartHeight;
+            return (
+              <div key={index}>
+                <div 
+                  className="absolute w-full border-t border-gray-300"
+                  style={{ top: linePosition + 'px' }}
+                />
+                <div 
+                  className="absolute text-sm text-gray-600 font-medium"
+                  style={{ 
+                    top: linePosition - 8 + 'px',
+                    left: '-45px',
+                    width: '40px',
+                    textAlign: 'right'
+                  }}
+                >
+                  {value}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        
+        {/* Столбцы данных */}
+        <div 
+          className="flex items-end justify-center space-x-6"
+          style={{ 
+            height: chartHeight + 100 + 'px',
+            paddingLeft: '50px',
+            paddingTop: chartPadding + 'px',
+            paddingBottom: '60px'
+          }}
+        >
+          {data.map((item, index) => {
+            // Высота столбца от минимума до максимума калорий
+            const barBottom = ((chartMax - item.high) / chartRange) * chartHeight;
+            const barTop = ((chartMax - item.low) / chartRange) * chartHeight;
+            const barHeight = Math.max(barTop - barBottom, 10);
+            
+            // Позиция средней линии (среднее значение калорий)
+            const avgPosition = ((chartMax - item.average) / chartRange) * chartHeight;
+            const avgLinePos = avgPosition - barBottom;
+            
+            return (
+              <div key={index} className="flex flex-col items-center">
+                <div 
+                  className="relative border-2 rounded-sm"
+                  style={{
+                    height: barHeight + 'px',
+                    width: '32px',
+                    backgroundColor: item.color + '40', // Полупрозрачный фон
+                    borderColor: item.color,
+                    marginTop: barBottom + 'px',
+                    marginBottom: chartHeight - barTop + 'px'
+                  }}
+                >
+                  {/* Линия среднего значения */}
+                  <div 
+                    className="absolute w-full bg-white border-t-2"
+                    style={{
+                      height: '0px',
+                      top: avgLinePos + 'px',
+                      borderColor: item.color
+                    }}
+                  />
+                </div>
+                
+                {/* Подписи под столбцами */}
+                <div className="text-xs text-center mt-3 w-20">
+                  <div className="font-semibold text-gray-800">{item.date}</div>
+                  <div className="text-gray-600 mt-1">{item.low}-{item.high} ккал</div>
+                  <div className="text-gray-500 mt-1">
+                    🥬 {Math.round(item.vegetableRatio * 100)}%
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        
+        {/* Подпись оси Y */}
+        <div 
+          className="absolute text-sm text-gray-600 font-medium transform -rotate-90"
+          style={{ 
+            left: '-20px',
+            top: '50%',
+            transformOrigin: 'center'
+          }}
+        >
+          ккал
+        </div>
+      </div>
+    );
+  };
+
+  const StatCard = ({ title, value, icon: Icon, color }) => {
+    return (
+      <div className="bg-white rounded-lg p-4 shadow-sm border">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-600">{title}</p>
+            <p className="text-2xl font-bold text-gray-900">{value}</p>
+          </div>
+          <Icon className={`h-8 w-8 ${color}`} />
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen">
+      <div className="bg-white rounded-lg shadow-sm mb-6">
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8 px-6">
+            {[
+              { id: 'entry', name: 'Новая запись', icon: Plus },
+              { id: 'analytics', name: 'Аналитика', icon: TrendingUp },
+              { id: 'history', name: 'История', icon: FileText }
+            ].map(({ id, name, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`flex items-center space-x-2 py-4 border-b-2 font-medium text-sm ${
+                  activeTab === id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{name}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {activeTab === 'entry' && (
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Новая запись в дневник</h2>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Дата записи
+              </label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="border border-gray-300 rounded-md px-3 py-2"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Расскажите о своем дне
+              </label>
+              <div className="relative">
+                <textarea
+                  value={currentEntry}
+                  onChange={(e) => setCurrentEntry(e.target.value)}
+                  placeholder="Расскажите как спали, что ели, как себя чувствуете, какая была физическая активность, настроение..."
+                  className="w-full h-32 border border-gray-300 rounded-md px-3 py-2 resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  onClick={handleVoiceInput}
+                  className={`absolute bottom-2 right-2 p-2 rounded-full ${
+                    isRecording ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                  }`}
+                >
+                  {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={handleSubmitEntry}
+              disabled={!currentEntry.trim()}
+              className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              Сохранить запись
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'analytics' && (
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Аналитика здоровья</h2>
+            
+            {entries.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500">Нет данных для отображения. Добавьте первую запись!</p>
+              </div>
+            ) : (
+              <>
+                {/* Профиль пользователя */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <h3 className="font-semibold text-blue-900 mb-2">Профиль пользователя</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-blue-700">Рост:</span> <span className="font-medium">{userProfile.height} см</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-700">Вес:</span> <span className="font-medium">{userProfile.weight} кг</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-700">ИМТ:</span> <span className="font-medium">{(userProfile.weight / ((userProfile.height / 100) ** 2)).toFixed(1)}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-700">Калории:</span> <span className="font-medium">{getRecommendedCalories().maintenance} ккал/день</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={clearMockData}
+                    className="mt-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200"
+                  >
+                    Удалить тестовые данные
+                  </button>
+                </div>
+
+                {/* Резюме недели */}
+                {(() => {
+                  const weeklySummary = getWeeklySummary();
+                  return (
+                    <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 mb-6">
+                      <h3 className="font-semibold text-purple-900 mb-2">Резюме недели</h3>
+                      <p className="text-purple-800 mb-2">{weeklySummary.summary}</p>
+                      <p className="text-purple-700 text-sm">{weeklySummary.recommendation}</p>
+                    </div>
+                  );
+                })()}
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                  <StatCard
+                    title="Всего записей"
+                    value={entries.length}
+                    icon={FileText}
+                    color="text-blue-500"
+                  />
+                  <StatCard
+                    title="Средний сон"
+                    value={chartData.length ? (chartData.reduce((acc, d) => acc + d.сон, 0) / chartData.length).toFixed(1) : '0'}
+                    icon={Moon}
+                    color="text-purple-500"
+                  />
+                  <StatCard
+                    title="Среднее настроение"
+                    value={chartData.length ? (chartData.reduce((acc, d) => acc + d.настроение, 0) / chartData.length).toFixed(1) : '0'}
+                    icon={Smile}
+                    color="text-yellow-500"
+                  />
+                  <StatCard
+                    title="Активных дней"
+                    value={chartData.filter(d => d.активность > 0).length}
+                    icon={Activity}
+                    color="text-green-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white border rounded-lg p-4">
+                    <h3 className="font-semibold mb-4">Общие показатели (последние 7 дней)</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis domain={[-2, 2]} tickFormatter={(value) => {
+                          if (value === -2) return 'Сильно хуже';
+                          if (value === -1) return 'Хуже';
+                          if (value === 0) return 'Нормально';
+                          if (value === 1) return 'Лучше';
+                          if (value === 2) return 'Сильно лучше';
+                          return value;
+                        }} />
+                        <Tooltip formatter={(value) => {
+                          if (value === -2) return 'Сильно хуже';
+                          if (value === -1) return 'Хуже';
+                          if (value === 0) return 'Нормально';
+                          if (value === 1) return 'Лучше';
+                          if (value === 2) return 'Сильно лучше';
+                          return value;
+                        }} />
+                        <Legend />
+                        <Line type="monotone" dataKey="сон" stroke="#8b5cf6" strokeWidth={2} />
+                        <Line type="monotone" dataKey="настроение" stroke="#f59e0b" strokeWidth={2} />
+                        <Line type="monotone" dataKey="самочувствие" stroke="#10b981" strokeWidth={2} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="bg-white border rounded-lg p-4">
+                    <h3 className="font-semibold mb-4">Физическая активность</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="активность" fill="#3b82f6" name="Активность" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="mt-6 bg-white border rounded-lg p-4">
+                  <h3 className="font-semibold mb-4">
+                    Диапазон калорий (свечной график)
+                    <span className="text-sm font-normal text-gray-600 ml-2">
+                      🟢 ≥50% овощей | 🟡 30-50% овощей | 🔴 &lt;30% овощей
+                    </span>
+                  </h3>
+                  {candlestickData.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <CandlestickChart data={candlestickData} />
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      Недостаточно данных о калориях для отображения графика
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'history' && (
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">История записей</h2>
+            
+            {entries.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500">Записей пока нет. Добавьте первую запись!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {entries.slice().reverse().map((entry) => (
+                  <div key={entry.id} className="border rounded-lg p-4 bg-gray-50">
+                    <div className="flex justify-between items-start mb-3">
+                      <h3 className="font-semibold text-lg">
+                        {new Date(entry.date).toLocaleDateString('ru-RU', { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </h3>
+                      <span className="text-sm text-gray-500">
+                        {new Date(entry.timestamp).toLocaleTimeString('ru-RU')}
+                      </span>
+                    </div>
+                    
+                    <div className="mb-3">
+                      <p className="text-gray-700 italic">"{entry.text}"</p>
+                    </div>
+
+                    {entry.loading ? (
+                      <div className="text-center py-4">
+                        <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                        <p className="text-sm text-gray-500 mt-2">Анализируем запись...</p>
+                      </div>
+                    ) : entry.analysis ? (
+                      <>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-sm">
+                          <div className="flex items-center space-x-2">
+                            <Moon className="h-4 w-4 text-purple-500" />
+                            <span>Сон: {entry.analysis.sleep && entry.analysis.sleep.quality}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Smile className="h-4 w-4 text-yellow-500" />
+                            <span>Настроение: {entry.analysis.mood && entry.analysis.mood.level}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Heart className="h-4 w-4 text-red-500" />
+                            <span>Самочувствие: {entry.analysis.general_wellbeing && entry.analysis.general_wellbeing.level}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Activity className="h-4 w-4 text-green-500" />
+                            <span>Активность: {entry.analysis.physical_activity && entry.analysis.physical_activity.level}</span>
+                          </div>
+                          {entry.analysis.meals && entry.analysis.meals.estimated_calories && (
+                            <div className="flex items-center space-x-2">
+                              <Utensils className="h-4 w-4 text-orange-500" />
+                              <span>
+                                {entry.analysis.meals.min_calories && entry.analysis.meals.max_calories 
+                                  ? entry.analysis.meals.min_calories + '-' + entry.analysis.meals.max_calories + ' ккал'
+                                  : '~' + entry.analysis.meals.estimated_calories + ' ккал'
+                                }
+                              </span>
+                            </div>
+                          )}
+                          {entry.analysis.meals && entry.analysis.meals.vegetable_ratio > 0 && (
+                            <div className="flex items-center space-x-2">
+                              <span className="text-green-500">🥬</span>
+                              <span>Овощи: {Math.round(entry.analysis.meals.vegetable_ratio * 100)}%</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {(entry.analysis.additional && (entry.analysis.additional.medications || 
+                          entry.analysis.additional.special_events || 
+                          entry.analysis.additional.problems)) && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <p className="text-sm text-gray-600">
+                              <strong>Дополнительно:</strong> {[
+                                entry.analysis.additional.medications,
+                                entry.analysis.additional.special_events,
+                                entry.analysis.additional.problems
+                              ].filter(Boolean).join(', ')}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-red-500 text-sm">Ошибка анализа записи</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default HealthDiary;
+              
+    </script>
+</body>
+</html>
