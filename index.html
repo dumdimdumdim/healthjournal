@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AI Health Tracker</title>
-  <!-- React 17 и ReactDOM 17 -->
+  <!-- React 17 -->
   <script crossorigin src="https://unpkg.com/react@17/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-  <!-- Babel для JSX -->
+  <!-- Babel for JSX in-browser -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <!-- TailwindCSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -16,274 +16,237 @@
   <!-- Plotly.js -->
   <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
   <style>
-    .chart-container { position: relative; height: 300px; width: 100%; }
+    body { background: #f3f4f6; }
+    .chart-container { position: relative; height: 250px; width: 100%; }
   </style>
 </head>
-<body class="bg-gray-50">
+<body class="min-h-screen p-4">
   <div id="root"></div>
 
   <script type="text/babel">
-  const { useState, useEffect, useRef } = React;
+    const { useState, useEffect, useRef } = React;
 
-  function HealthTracker() {
-    // Профиль
-    const userProfile = { weight: 98, height: 178, age: 30, name: 'Пользователь' };
-    const bmr = 88.362 + 13.397 * userProfile.weight + 4.799 * userProfile.height - 5.677 * userProfile.age;
-    const calorieNorm = Math.round(bmr * 1.55);
+    const HF_TOKEN = "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";
 
-    // State
-    const [dayText, setDayText] = useState('');
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [healthData, setHealthData] = useState([]);
-    const [weeklySummary, setWeeklySummary] = useState('');
-    const [weeklyAdvice, setWeeklyAdvice] = useState('');
-
-    // Refs
-    const healthRef = useRef();
-    const activityRef = useRef();
-
-    // Мок-анализ текста
-    const analyzeText = (text, date) => {
-      const t = text.toLowerCase();
-      let sleep_quality = 0;
-      if (t.includes('8 часов') || t.includes('отлично')) sleep_quality = 2;
-      else if (t.includes('7 часов') || t.includes('хорошо')) sleep_quality = 1;
-      else if (t.includes('5 часов') || t.includes('плохо')) sleep_quality = -1;
-      let mood = 0;
-      if (t.includes('радост') || t.includes('отлично настроение')) mood = 2;
-      else if (t.includes('хорошее настроение')) mood = 1;
-      else if (t.includes('груст') || t.includes('устал')) mood = -1;
-      const health_status = Math.max(sleep_quality, mood);
-      let physical_activity = 0;
-      if (t.includes('интенсив') || t.includes('тяжел')) physical_activity = 3;
-      else if (t.includes('трениров') || t.includes('бег')) physical_activity = 2;
-      else if (t.includes('прогул') || t.includes('йога')) physical_activity = 1;
-      const vegetables_percent = t.includes('салат') || t.includes('овощи') ? 60 : 30;
-      const coffee_cups = t.includes('2 чашки') ? 2 : (t.includes('кофе') ? 1 : 0);
-      const alcohol_units = (t.includes('пиво') || t.includes('вино')) ? 1 : 0;
-      return {
-        date,
-        sleep_quality, mood, health_status, physical_activity,
-        calories_min: calorieNorm - 200,
-        calories_max: calorieNorm + 300,
-        vegetables_percent, coffee_cups, alcohol_units,
-        summary: text.slice(0,30) + '…',
-        original_text: text
-      };
-    };
-
-    // Инициализация 10 дней
-    useEffect(() => {
-      const texts = [
-        'Отлично спал 8 часов, радостное настроение, пробежка, салат, 2 чашки кофе.',
-        'Плохо спал 5 часов, устал, офис, фастфуд без овощей, без кофе.',
-        '7 часов сна, спокойствие, йога, овощной суп, 1 кофе.',
-        'Спал 7 часов, бодр, спортзал, салат, без алкоголя.',
-        '8 часов, отличное настроение, бассейн, овощное рагу, 1 кофе, бокал вина.',
-        '6 часов, среднее настроение, прогулка, овощи с рыбой, 1 кофе.',
-        'Отлично спал, тренировка, овощи, 2 кофе.',
-        '5 часов, грусть, стресс, пицца, без кофе.',
-        '7 часов, хороший настрой, лёгкий бег, овощи и курица.',
-        '8 часов, отличное настроение, йога, овощной смузи.'
-      ];
-      const today = new Date();
-      const data = texts.map((t,i) => {
-        const d = new Date(today);
-        d.setDate(d.getDate() - (texts.length - 1 - i));
-        return analyzeText(t, d.toISOString().split('T')[0]);
-      });
-      setHealthData(data);
-    }, []);
-
-    // Еженедельное резюме
-    useEffect(() => {
-      if (healthData.length < 7) return;
-      const last7 = healthData.slice(-7);
-      const sum = last7.reduce((a,e) => {
-        a.sleep_quality += e.sleep_quality;
-        a.mood += e.mood;
-        a.health_status += e.health_status;
-        a.physical_activity += e.physical_activity;
-        a.vegetables_percent += e.vegetables_percent;
-        a.coffee_cups += e.coffee_cups;
-        a.alcohol_units += e.alcohol_units;
-        return a;
-      }, {sleep_quality:0,mood:0,health_status:0,physical_activity:0,vegetables_percent:0,coffee_cups:0,alcohol_units:0});
-      const n = last7.length;
-      setWeeklySummary(
-        `Итоги недели: сон ${(sum.sleep_quality/n).toFixed(1)}, настроение ${(sum.mood/n).toFixed(1)}, здоровье ${(sum.health_status/n).toFixed(1)}, активность ${(sum.physical_activity/n).toFixed(1)}, овощи ${Math.round(sum.vegetables_percent/n)}%, ☕ ${(sum.coffee_cups/n).toFixed(1)}, 🍺 ${(sum.alcohol_units/n).toFixed(1)}`
-      );
-      setWeeklyAdvice('Продолжайте в том же духе, добавьте больше овощей.');
-    }, [healthData]);
-
-    // Построение графиков
-    useEffect(() => {
-      if (!healthData.length) return;
-      drawHealthChart();
-      drawActivityChart();
-      drawCaloriesChart(healthData, calorieNorm, 'caloriesChart');
-    }, [healthData]);
-
-    function drawHealthChart() {
-      const ctx = healthRef.current.getContext('2d');
-      if (window.hc) window.hc.destroy();
-      window.hc = new Chart(ctx, {
-        type:'line',
-        data:{
-          labels: healthData.map(d=>d.date.slice(5).replace('-','.')),
-          datasets:[
-            { label:'Сон', data:healthData.map(d=>d.sleep_quality), borderColor:'#3b82f6', fill:false, tension:0.3 },
-            { label:'Настроение', data:healthData.map(d=>d.mood), borderColor:'#22c55e', fill:false, tension:0.3 },
-            { label:'Здоровье', data:healthData.map(d=>d.health_status), borderColor:'#a855f7', fill:false, tension:0.3 }
-          ]
+    // Вызываем HF модель flan-t5-small для извлечения всех метрик
+    async function analyzeWithLLM(text) {
+      const prompt = `
+Анализ дня. Рассказ: "${text}"
+Верни ТОЛЬКО JSON в формате:
+{
+  "sleep_quality": число -2..2,
+  "mood": число -2..2,
+  "health_status": число -2..2,
+  "physical_activity": число 0..4,
+  "calories_min": число,
+  "calories_max": число,
+  "vegetables_percent": число 0..100,
+  "coffee_cups": число,
+  "alcohol_units": число,
+  "summary": "короткое резюме",
+  "weekly_advice": "рекомендация"
+}`;
+      const res = await fetch("https://api-inference.huggingface.co/models/google/flan-t5-small", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${HF_TOKEN}`,
+          "Content-Type": "application/json"
         },
-        options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:-2,max:2,ticks:{stepSize:1}}}}
+        body: JSON.stringify({ inputs: prompt })
       });
+      const json = await res.json();
+      const txt = json.generated_text || (Array.isArray(json) && json[0]?.generated_text);
+      const match = txt.match(/\{[\s\S]*\}/);
+      return match ? JSON.parse(match[0]) : null;
     }
 
-    function drawActivityChart() {
-      const ctx = activityRef.current.getContext('2d');
-      if (window.ac) window.ac.destroy();
-      window.ac = new Chart(ctx, {
-        type:'bar',
-        data:{
-          labels: healthData.map(d=>d.date.slice(5).replace('-','.')),
-          datasets:[{
-            label:'Активность',
-            data: healthData.map(d=>d.physical_activity),
-            backgroundColor: healthData.map(d=>
-              d.physical_activity===0?'#9ca3af':d.physical_activity===1?'#22c55e':d.physical_activity===2?'#3b82f6':d.physical_activity===3?'#f59e0b':'#ef4444'
-            )
-          }]
-        },
-        options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:0,max:4,ticks:{stepSize:1}}}}
-      });
-    }
+    function HealthTracker() {
+      // профиль (жёстко)
+      const userProfile = { weight: 98, height: 178, age: 30, name: "Пользователь" };
+      const bmr = 88.362 + 13.397 * userProfile.weight + 4.799 * userProfile.height - 5.677 * userProfile.age;
+      const calorieNorm = Math.round(bmr * 1.55);
 
-    function drawCaloriesChart(data, norm, containerId) {
-      const dates = data.map(d=>d.date.slice(5).replace('-','.'));
-      const centers = data.map(d=>(d.calories_min+d.calories_max)/2);
-      const errUp = data.map(d=>d.calories_max - (d.calories_min+d.calories_max)/2);
-      const errDn = data.map(d=>(d.calories_min+d.calories_max)/2 - d.calories_min);
-      const colors = data.map(d=> d.vegetables_percent>=50?'#22c55e':d.vegetables_percent>=30?'#f59e0b':'#ef4444');
-      const normMin = norm*0.85, normMax = norm*1.15;
+      const [dayText, setDayText] = useState("");
+      const [isAnalyzing, setIsAnalyzing] = useState(false);
+      const [data, setData] = useState([]);
+      const [weeklySummary, setWeeklySummary] = useState("");
+      const [weeklyAdvice, setWeeklyAdvice] = useState("");
 
-      const shapes = [{ type:'rect', xref:'paper', yref:'y', x0:0, x1:1, y0:normMin, y1:normMax, fillcolor:'rgba(220,255,220,0.3)', line:{width:0} }];
+      const refHealth = useRef();
+      const refActivity = useRef();
+      const refCalories = useRef();
 
-      const trace = {
-        x: dates, y: centers, mode:'markers',
-        marker:{ color:colors, size:12 },
-        error_y:{ type:'data', array:errUp, arrayminus:errDn, thickness:2, width:6 },
-        customdata: data.map(d=>[d.vegetables_percent,d.coffee_cups,d.alcohol_units]),
-        hovertemplate:
-          `<b>%{x}</b><br>` +
-          `Калории: %{y-error_y.arrayminus:.0f}–%{y+error_y.array:.0f} ккал<br>` +
-          `Овощи: %{customdata[0]}%<br>` +
-          `☕ %{customdata[1]}  🍺 %{customdata[2]}<extra></extra>`
+      // После обновления данных строим графики
+      useEffect(() => {
+        if (!data.length) return;
+        drawHealthChart();
+        drawActivityChart();
+        drawCaloriesChart();
+      }, [data]);
+
+      // Расчёт резюме за неделю
+      useEffect(() => {
+        if (data.length < 7) return;
+        const last7 = data.slice(-7);
+        const sum = last7.reduce((acc, e) => {
+          ["sleep_quality","mood","health_status","physical_activity","vegetables_percent","coffee_cups","alcohol_units"]
+            .forEach(k => acc[k] = (acc[k]||0) + e[k]);
+          return acc;
+        }, {});
+        const n = last7.length;
+        setWeeklySummary(
+          `За неделю: сон ${(sum.sleep_quality/n).toFixed(1)}, настроение ${(sum.mood/n).toFixed(1)}, здоровье ${(sum.health_status/n).toFixed(1)}, активность ${(sum.physical_activity/n).toFixed(1)}, овощи ${Math.round(sum.vegetables_percent/n)}%, ☕ ${(sum.coffee_cups/n).toFixed(1)}, 🍺 ${(sum.alcohol_units/n).toFixed(1)}`
+        );
+        setWeeklyAdvice(last7[last7.length-1].weekly_advice);
+      }, [data]);
+
+      // Функции рисования графиков
+      function drawHealthChart() {
+        const ctx = refHealth.current.getContext("2d");
+        if (window.ch1) window.ch1.destroy();
+        window.ch1 = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: data.map(d=>d.date.slice(5).replace("-",".")),
+            datasets: [
+              { label:"Сон", data:data.map(d=>d.sleep_quality), borderColor:"#3b82f6", fill:false },
+              { label:"Настроение", data:data.map(d=>d.mood), borderColor:"#22c55e", fill:false },
+              { label:"Здоровье", data:data.map(d=>d.health_status), borderColor:"#a855f7", fill:false },
+            ]
+          },
+          options:{ responsive:true, scales:{ y:{ min:-2,max:2, ticks:{ stepSize:1 } } } }
+        });
+      }
+      function drawActivityChart() {
+        const ctx = refActivity.current.getContext("2d");
+        if (window.ch2) window.ch2.destroy();
+        window.ch2 = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: data.map(d=>d.date.slice(5).replace("-",".")),
+            datasets: [{
+              label:"Активность",
+              data:data.map(d=>d.physical_activity),
+              backgroundColor:data.map(d=>{
+                const v=d.physical_activity;
+                return v===0?"#9ca3af":v===1?"#22c55e":v===2?"#3b82f6":v===3?"#f59e0b":"#ef4444";
+              })
+            }]
+          },
+          options:{ responsive:true, scales:{ y:{ min:0,max:4, ticks:{ stepSize:1 } } } }
+        });
+      }
+      function drawCaloriesChart() {
+        const trace = {
+          x: data.map(d=>d.date.slice(5).replace("-",".")),
+          open: data.map(d=>d.calories_min),
+          close:data.map(d=>d.calories_max),
+          high:data.map(d=>d.calories_max),
+          low:data.map(d=>d.calories_min),
+          type:"candlestick",
+          increasing:{ line:{ color:"#22c55e" }},
+          decreasing:{ line:{ color:"#ef4444" }},
+        };
+        const normMin = Math.round(calorieNorm*0.85), normMax = Math.round(calorieNorm*1.15);
+        const layout = {
+          xaxis:{ title:"День" },
+          yaxis:{ title:"ккал", range:[normMin-200,normMax+200] },
+          shapes:[{ type:"rect", xref:"paper", yref:"y", x0:0,x1:1, y0:normMin,y1:normMax, fillcolor:"rgba(200,255,200,0.3)", line:{width:0} }],
+          margin:{ t:20,b:40,l:50,r:20 }
+        };
+        Plotly.newPlot(refCalories.current, [trace], layout, { displayModeBar:false, responsive:true });
+      }
+
+      // Анализ дня
+      const handleAnalyze = async () => {
+        if (!dayText.trim()) return alert("Опишите день.");
+        setIsAnalyzing(true);
+        try {
+          const res = await analyzeWithLLM(dayText);
+          res.date = new Date().toISOString().split("T")[0];
+          setData([...data, res]);
+          setDayText("");
+        } catch(e) {
+          alert("Ошибка анализа");
+        }
+        setIsAnalyzing(false);
       };
 
-      const layout = {
-        title:{ text:'🍎 Питание и калории' },
-        shapes, xaxis:{ title:'День' }, yaxis:{ title:'ккал' },
-        margin:{ t:40,b:60,l:60,r:20 }, showlegend:false
-      };
+      return (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <header className="bg-white p-4 rounded shadow">
+            <h1 className="text-2xl font-bold">🧠 AI Health Tracker</h1>
+            <p>Профиль: {userProfile.name}, {userProfile.height} см, {userProfile.weight} кг — норма {calorieNorm} ккал/день</p>
+          </header>
 
-      Plotly.react(containerId, [trace], layout, {displayModeBar:false,responsive:true});
-    }
+          {weeklySummary && (
+            <div className="bg-white p-4 rounded shadow">
+              <p className="font-medium">{weeklySummary}</p>
+              <p className="mt-2 text-blue-700 bg-blue-50 p-2 rounded">{weeklyAdvice}</p>
+            </div>
+          )}
 
-    // Добавить сегодня
-    const analyzeDay = () => {
-      if (!dayText.trim()) return alert('Опишите день.');
-      setIsAnalyzing(true);
-      setTimeout(() => {
-        const today = new Date().toISOString().split('T')[0];
-        setHealthData(prev => [...prev, analyzeText(dayText, today)]);
-        setDayText(''); setIsAnalyzing(false);
-      }, 500);
-    };
+          <section className="bg-white p-4 rounded shadow">
+            <textarea
+              className="w-full border p-2 rounded mb-2"
+              rows={4}
+              value={dayText}
+              onChange={e=>setDayText(e.target.value)}
+              placeholder="Сон, настроение, еда, активность..."
+              disabled={isAnalyzing}
+            />
+            <button
+              onClick={handleAnalyze}
+              disabled={isAnalyzing}
+              className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
+            >
+              {isAnalyzing ? "Анализирую…" : "Анализировать"}
+            </button>
+          </section>
 
-    return (
-      <div className="max-w-4xl mx-auto p-4">
-        <header className="mb-6">
-          <h1 className="text-2xl font-bold">🧠 AI Health Tracker</h1>
-          <p className="text-gray-600">
-            {userProfile.name}, {userProfile.height} см, {userProfile.weight} кг — норма {calorieNorm} ккал/день
-          </p>
-        </header>
-
-        {weeklySummary && (
-          <div className="mb-6 bg-white p-4 rounded shadow">
-            <p className="font-medium">{weeklySummary}</p>
-            <p className="mt-2 text-blue-700 bg-blue-50 p-2 rounded">{weeklyAdvice}</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white p-4 rounded shadow">
+              <h3 className="font-semibold mb-2">📈 Самочувствие</h3>
+              <div className="chart-container"><canvas ref={refHealth}></canvas></div>
+            </div>
+            <div className="bg-white p-4 rounded shadow">
+              <h3 className="font-semibold mb-2">🏃 Активность</h3>
+              <div className="chart-container"><canvas ref={refActivity}></canvas></div>
+            </div>
           </div>
-        )}
 
-        <section className="mb-6 bg-white p-4 rounded shadow">
-          <textarea
-            className="w-full border p-2 rounded mb-2"
-            rows={4}
-            value={dayText}
-            onChange={e=>setDayText(e.target.value)}
-            placeholder="Сон, настроение, еда, активность..."
-            disabled={isAnalyzing}
-          />
-          <button
-            onClick={analyzeDay}
-            disabled={isAnalyzing}
-            className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
-          >
-            {isAnalyzing ? 'Анализирую…' : 'Анализировать'}
-          </button>
-        </section>
-
-        <div className="grid lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-white p-4 rounded shadow">
-            <h3 className="font-semibold mb-2">📈 Самочувствие</h3>
-            <div className="chart-container"><canvas ref={healthRef}></canvas></div>
+            <h3 className="font-semibold mb-2">🍎 Питание и калории</h3>
+            <div ref={refCalories} className="chart-container"></div>
           </div>
-          <div className="bg-white p-4 rounded shadow">
-            <h3 className="font-semibold mb-2">🏃 Активность</h3>
-            <div className="chart-container"><canvas ref={activityRef}></canvas></div>
-          </div>
-        </div>
 
-        <div className="bg-white p-4 rounded shadow mb-6">
-          <h3 className="font-semibold mb-2">🍎 Питание и калории</h3>
-          <div id="caloriesChart" className="chart-container"></div>
-        </div>
-
-        <section className="bg-white p-4 rounded shadow">
-          <h3 className="font-semibold mb-3">📚 История записей</h3>
-          <div className="space-y-4">
-            {healthData.slice(-7).reverse().map((e,i) => (
-              <div key={i} className="border p-3 rounded">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">
-                    {new Date(e.date).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'})}
-                  </span>
-                  <div className="flex space-x-1 text-xl">
+          <section className="bg-white p-4 rounded shadow">
+            <h3 className="font-semibold mb-3">📚 История записей</h3>
+            {data.slice(-7).reverse().map((e,i)=>(
+              <div key={i} className="border p-3 rounded mb-2">
+                <div className="flex justify-between">
+                  <span className="font-medium">{new Date(e.date).toLocaleDateString()}</span>
+                  <div className="space-x-1">
                     {[...Array(e.coffee_cups)].map((_,j)=><span key={j}>☕</span>)}
                     {[...Array(e.alcohol_units)].map((_,j)=><span key={j}>🍺</span>)}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm mt-2">
-                  <div>Сон: {e.sleep_quality>0?'+':''}{e.sleep_quality}</div>
-                  <div>Настроение: {e.mood>0?'+':''}{e.mood}</div>
-                  <div>Здоровье: {e.health_status>0?'+':''}{e.health_status}</div>
-                  <div>Активность: {['💤','🚶','🏃','🏋️','🔥'][e.physical_activity]}</div>
+                  <div>Сон: {e.sleep_quality>0?"+":""}{e.sleep_quality}</div>
+                  <div>Настроение: {e.mood>0?"+":""}{e.mood}</div>
+                  <div>Здоровье: {e.health_status>0?"+":""}{e.health_status}</div>
+                  <div>Активность: {["нет","слаб","норм","силь","экст"][e.physical_activity]}</div>
                   <div>Калории: {e.calories_min}-{e.calories_max}</div>
                 </div>
-                <p className="italic mt-2 text-gray-600">"{e.summary}"</p>
-                <p className="mt-1 text-gray-500 text-xs">{e.original_text}</p>
+                <p className="italic mt-2">"{e.summary}"</p>
               </div>
             ))}
-          </div>
-        </section>
-      </div>
-    );
-  }
+          </section>
+        </div>
+      );
+    }
 
-  ReactDOM.render(<HealthTracker/>, document.getElementById('root'));
+    ReactDOM.render(<HealthTracker />, document.getElementById("root"));
   </script>
 </body>
 </html>
