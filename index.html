@@ -37,6 +37,7 @@
     const [entries, setEntries] = useState([]);
     const [weeklySummary, setWeeklySummary] = useState('');
     const [weeklyAdvice, setWeeklyAdvice] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
 
     // Рефы для холстов
     const refHealth = useRef();
@@ -45,13 +46,26 @@
 
     // Хэлпер для вызова нашей serverless-функции
     async function analyzeWithProxy(dayText) {
+      console.log('Sending request to /api/analyze with text:', dayText);
+      
       const res = await fetch('/api/analyze', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
         body:JSON.stringify({ text: dayText })
       });
-      if (!res.ok) throw new Error('Inference failed: '+res.status);
-      return res.json();
+      
+      console.log('Response status:', res.status);
+      console.log('Response ok:', res.ok);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('API Error:', res.status, errorText);
+        throw new Error(`API Error: ${res.status} - ${errorText}`);
+      }
+      
+      const result = await res.json();
+      console.log('API Result:', result);
+      return result;
     }
 
     // При добавлении новой записи — обновляем списки и графики
@@ -65,16 +79,60 @@
 
     // Добавить сегодня
     const handleAnalyze = async () => {
-      if (!text.trim()) return alert('Опишите день.');
+      if (!text.trim()) {
+        setErrorMessage('Пожалуйста, опишите свой день');
+        return;
+      }
+      
       setLoading(true);
+      setErrorMessage('');
+      
       try {
         const today = new Date().toISOString().split('T')[0];
+        console.log('Analyzing text for date:', today);
+        
         const metrics = await analyzeWithProxy(text);
+        console.log('Received metrics:', metrics);
+        
         setEntries(prev=>[...prev, { date: today, ...metrics }]);
         setText('');
+        setErrorMessage('');
+        
       } catch(err) {
-        console.error(err);
-        alert('Ошибка анализа');
+        console.error('Analysis error:', err);
+        setErrorMessage(`Ошибка анализа: ${err.message}`);
+        
+        // Добавляем запись с дефолтными значениями
+        const today = new Date().toISOString().split('T')[0];
+        const defaultMetrics = {
+          sleep: 0, mood: 0, health: 0, activity: 1,
+          calMin: 1800, calMax: 2200, vege: 30,
+          coffee: 1, alco: 0,
+          summary: "Ошибка анализа - использованы стандартные значения",
+          original: text
+        };
+        
+        setEntries(prev=>[...prev, { date: today, ...defaultMetrics }]);
+        setText('');
+        
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Функция для тестирования API
+    const testAPI = async () => {
+      setLoading(true);
+      setErrorMessage('');
+      
+      try {
+        console.log('Testing API...');
+        const testResult = await analyzeWithProxy('Тестовый запрос: хорошо спал, ел овощи, пил кофе');
+        console.log('Test successful:', testResult);
+        setErrorMessage('✅ API работает! Результат теста: ' + JSON.stringify(testResult));
+      } catch (err) {
+        console.error('API test failed:', err);
+        setErrorMessage('❌ Тест API не прошел: ' + err.message);
       } finally {
         setLoading(false);
       }
@@ -82,7 +140,9 @@
 
     // Рисуем самочувствие
     function drawHealth(){
-      const ctx = refHealth.current.getContext('2d');
+      const ctx = refHealth.current?.getContext('2d');
+      if (!ctx) return;
+      
       if (window.chartHealth) window.chartHealth.destroy();
       window.chartHealth = new Chart(ctx, {
         type:'line',
@@ -102,7 +162,9 @@
 
     // Рисуем активность
     function drawActivity(){
-      const ctx = refActivity.current.getContext('2d');
+      const ctx = refActivity.current?.getContext('2d');
+      if (!ctx) return;
+      
       if (window.chartAct) window.chartAct.destroy();
       window.chartAct = new Chart(ctx, {
         type:'bar',
@@ -127,6 +189,8 @@
 
     // Рисуем питание/калории
     function drawCalories(){
+      if (!refCalories.current) return;
+      
       const dates = entries.map(e=>e.date.slice(5).replace('-','.'));
       const centers = entries.map(e=>(e.calMin+e.calMax)/2);
       const errUp = entries.map(e=>e.calMax - (e.calMin+e.calMax)/2);
@@ -194,6 +258,25 @@
           </p>
         </header>
 
+        {/* Панель отладки */}
+        <section className="bg-yellow-50 border border-yellow-200 p-4 rounded">
+          <h3 className="font-semibold mb-2">🔧 Отладка API</h3>
+          <button
+            onClick={testAPI}
+            disabled={loading}
+            className="px-4 py-2 bg-yellow-600 text-white rounded disabled:bg-gray-400 mr-2"
+          >
+            {loading ? 'Тестирую...' : 'Тест API'}
+          </button>
+          {errorMessage && (
+            <div className={`mt-2 p-2 rounded ${
+              errorMessage.includes('✅') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}>
+              {errorMessage}
+            </div>
+          )}
+        </section>
+
         {!!weeklySummary && (
           <section className="bg-white p-4 rounded shadow">
             <p className="font-medium">{weeklySummary}</p>
@@ -205,62 +288,70 @@
           <textarea
             className="w-full border p-2 rounded mb-2"
             rows={4}
-            placeholder="Сон, настроение, еда, активность..."
+            placeholder="Опишите свой день: как спали, что ели, какая была активность, настроение..."
             value={text}
             onChange={e=>setText(e.target.value)}
             disabled={loading}
           />
           <button
             onClick={handleAnalyze}
-            disabled={loading}
+            disabled={loading || !text.trim()}
             className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
           >
-            {loading ? 'Анализирую…' : 'Анализировать'}
+            {loading ? 'Анализирую…' : 'Анализировать день'}
           </button>
         </section>
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          <div className="bg-white p-4 rounded shadow">
-            <h3 className="font-semibold mb-2">📈 Самочувствие</h3>
-            <div className="chart-container"><canvas ref={refHealth}></canvas></div>
-          </div>
-          <div className="bg-white p-4 rounded shadow">
-            <h3 className="font-semibold mb-2">🏃 Активность</h3>
-            <div className="chart-container"><canvas ref={refActivity}></canvas></div>
-          </div>
-        </div>
+        {entries.length > 0 && (
+          <>
+            <div className="grid lg:grid-cols-2 gap-6">
+              <div className="bg-white p-4 rounded shadow">
+                <h3 className="font-semibold mb-2">📈 Самочувствие</h3>
+                <div className="chart-container"><canvas ref={refHealth}></canvas></div>
+              </div>
+              <div className="bg-white p-4 rounded shadow">
+                <h3 className="font-semibold mb-2">🏃 Активность</h3>
+                <div className="chart-container"><canvas ref={refActivity}></canvas></div>
+              </div>
+            </div>
 
-        <div className="bg-white p-4 rounded shadow">
-          <h3 className="font-semibold mb-2">🍎 Питание и калории</h3>
-          <div ref={refCalories} className="chart-container"></div>
-        </div>
+            <div className="bg-white p-4 rounded shadow">
+              <h3 className="font-semibold mb-2">🍎 Питание и калории</h3>
+              <div ref={refCalories} className="chart-container"></div>
+            </div>
+          </>
+        )}
 
         <section className="bg-white p-4 rounded shadow">
           <h3 className="font-semibold mb-3">📚 История последних 7 дней</h3>
-          <div className="space-y-4">
-            {entries.slice(-7).reverse().map((e,i)=>(
-              <div key={i} className="border p-3 rounded">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">
-                    {new Date(e.date).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'})}
-                  </span>
-                  <div className="flex space-x-1 text-xl">
-                    {[...Array(e.coffee)].map((_,j)=><span key={j}>☕</span>)}
-                    {[...Array(e.alco)].map((_,j)=><span key={j}>🍺</span>)}
+          {entries.length === 0 ? (
+            <p className="text-gray-500 italic">Пока нет записей. Добавьте первую запись выше!</p>
+          ) : (
+            <div className="space-y-4">
+              {entries.slice(-7).reverse().map((e,i)=>(
+                <div key={i} className="border p-3 rounded">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">
+                      {new Date(e.date).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'})}
+                    </span>
+                    <div className="flex space-x-1 text-xl">
+                      {[...Array(Math.min(e.coffee || 0, 5))].map((_,j)=><span key={j}>☕</span>)}
+                      {[...Array(Math.min(e.alco || 0, 5))].map((_,j)=><span key={j}>🍺</span>)}
+                    </div>
                   </div>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm mt-2">
+                    <div>Сон: {e.sleep>0?'+':''}{e.sleep}</div>
+                    <div>Настроение: {e.mood>0?'+':''}{e.mood}</div>
+                    <div>Здоровье: {e.health>0?'+':''}{e.health}</div>
+                    <div>Активность: {['💤','🚶','🏃','🏋️','🔥'][e.activity] || '❓'}</div>
+                    <div>Калории: {e.calMin}–{e.calMax}</div>
+                  </div>
+                  <p className="italic mt-2 text-gray-600">"{e.summary}"</p>
+                  <p className="mt-1 text-gray-500 text-xs">{e.original}</p>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm mt-2">
-                  <div>Сон: {e.sleep>0?'+':''}{e.sleep}</div>
-                  <div>Настроение: {e.mood>0?'+':''}{e.mood}</div>
-                  <div>Здоровье: {e.health>0?'+':''}{e.health}</div>
-                  <div>Активность: {['💤','🚶','🏃','🏋️','🔥'][e.activity]}</div>
-                  <div>Калории: {e.calMin}–{e.calMax}</div>
-                </div>
-                <p className="italic mt-2 text-gray-600">"{e.summary}"</p>
-                <p className="mt-1 text-gray-500 text-xs">{e.original}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     );
