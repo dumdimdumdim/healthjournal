@@ -19,146 +19,148 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'No text provided' });
   }
 
-  console.log('Analyzing text:', text);
+  console.log('Analyzing text with Groq:', text);
 
   try {
-    // Проверяем наличие API ключа
-    const HF_API_TOKEN = process.env.HF_API_TOKEN;
-    if (!HF_API_TOKEN) {
-      console.error('HF_API_TOKEN not found');
-      return res.status(500).json({ error: 'API token not configured' });
+    // Проверяем наличие API ключа Groq
+    const GROQ_API_KEY = process.env.GROQ_API_KEY;
+    
+    if (!GROQ_API_KEY) {
+      console.error('GROQ_API_KEY not found');
+      return res.status(500).json({ error: 'Groq API key not configured' });
     }
 
-    // Создаем промпт для анализа
-    const prompt = `Анализируй день: "${text}". Верни только JSON с метриками:
-    
-Пример ответа:
+    // Делаем запрос к Groq API
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: "llama3-8b-8192", // Быстрая и качественная модель
+        messages: [
+          {
+            role: "system",
+            content: `Ты эксперт по анализу здоровья. Анализируй описание дня человека и возвращай ТОЛЬКО валидный JSON без дополнительного текста.
+
+Параметры анализа:
+- sleep: от -2 (очень плохой сон) до +2 (отличный сон)
+- mood: от -2 (очень плохое настроение) до +2 (отличное настроение)  
+- health: от -2 (очень плохое самочувствие) до +2 (отличное самочувствие)
+- activity: 0=отдых, 1=легкая активность/ходьба, 2=умеренная/плавание/бег, 3=спорт/тренировка, 4=интенсивная тренировка
+- calMin, calMax: примерный диапазон калорий за день
+- vege: процент овощей и фруктов в рационе (0-100)
+- coffee: количество порций кофе
+- alco: количество порций алкоголя
+- summary: краткое описание дня (1-2 предложения)
+
+Отвечай ТОЛЬКО JSON, никакого дополнительного текста!`
+          },
+          {
+            role: "user",
+            content: `Проанализируй этот день: "${text}"
+
+Верни JSON в точно таком формате:
 {
-  "sleep": 1,
-  "mood": 0, 
-  "health": -1,
-  "activity": 2,
-  "calMin": 1800,
-  "calMax": 2200,
-  "vege": 60,
-  "coffee": 2,
-  "alco": 0,
-  "summary": "Хороший день с активностью"
-}
-
-Где:
-- sleep, mood, health: от -2 до +2
-- activity: 0-покой, 1-ходьба, 2-бег, 3-спорт, 4-интенсив
-- calMin/calMax: примерные калории
-- vege: процент овощей 0-100
-- coffee, alco: количество порций
-
-JSON:`;
-
-    // Делаем запрос к HuggingFace
-    const response = await fetch(
-      'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${HF_API_TOKEN}`,
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            max_new_tokens: 200,
-            temperature: 0.3,
-            return_full_text: false
+  "sleep": число,
+  "mood": число,
+  "health": число,
+  "activity": число,
+  "calMin": число,
+  "calMax": число,
+  "vege": число,
+  "coffee": число,
+  "alco": число,
+  "summary": "текст"
+}`
           }
-        }),
-      }
-    );
+        ],
+        temperature: 0.1, // Низкая температура для стабильности
+        max_tokens: 300,
+        response_format: { type: "json_object" } // Принуждаем к JSON формату
+      })
+    });
 
-    console.log('HF Response status:', response.status);
+    console.log('Groq Response status:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('HF inference error:', response.status, errorText);
-      
-      // Возвращаем дефолтные значения при ошибке API
-      return res.status(200).json({
-        sleep: 0,
-        mood: 0,
-        health: 0,
-        activity: 1,
-        calMin: 1800,
-        calMax: 2200,
-        vege: 30,
-        coffee: 1,
-        alco: 0,
-        summary: "Анализ недоступен, использованы стандартные значения",
-        original: text
+      console.error('Groq API error:', response.status, errorText);
+      return res.status(500).json({ 
+        error: 'Groq API error',
+        details: errorText,
+        status: response.status
       });
     }
 
     const result = await response.json();
-    console.log('HF Result:', result);
+    console.log('Groq Result:', result);
 
-    // Парсим ответ от модели
+    // Извлекаем сгенерированный JSON
+    const content = result.choices[0]?.message?.content;
+    
+    if (!content) {
+      throw new Error('No content in Groq response');
+    }
+
+    console.log('Generated content:', content);
+
+    // Парсим JSON ответ
     let jsonResult;
     try {
-      const generatedText = result[0]?.generated_text || result.generated_text || '';
-      console.log('Generated text:', generatedText);
+      jsonResult = JSON.parse(content);
       
-      // Ищем JSON в ответе
-      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        jsonResult = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON found in response');
+      // Валидируем обязательные поля
+      const requiredFields = ['sleep', 'mood', 'health', 'activity', 'calMin', 'calMax', 'vege', 'coffee', 'alco', 'summary'];
+      const missingFields = requiredFields.filter(field => jsonResult[field] === undefined);
+      
+      if (missingFields.length > 0) {
+        throw new Error(`Missing fields: ${missingFields.join(', ')}`);
       }
+
+      // Валидируем диапазоны значений
+      jsonResult.sleep = Math.max(-2, Math.min(2, Number(jsonResult.sleep) || 0));
+      jsonResult.mood = Math.max(-2, Math.min(2, Number(jsonResult.mood) || 0));
+      jsonResult.health = Math.max(-2, Math.min(2, Number(jsonResult.health) || 0));
+      jsonResult.activity = Math.max(0, Math.min(4, Number(jsonResult.activity) || 0));
+      jsonResult.vege = Math.max(0, Math.min(100, Number(jsonResult.vege) || 0));
+      jsonResult.coffee = Math.max(0, Math.min(20, Number(jsonResult.coffee) || 0));
+      jsonResult.alco = Math.max(0, Math.min(20, Number(jsonResult.alco) || 0));
+      jsonResult.calMin = Math.max(800, Math.min(5000, Number(jsonResult.calMin) || 1500));
+      jsonResult.calMax = Math.max(jsonResult.calMin, Math.min(6000, Number(jsonResult.calMax) || 2500));
+
     } catch (parseError) {
-      console.log('Parse error, using fallback analysis');
+      console.error('JSON parse error:', parseError);
+      console.error('Content that failed to parse:', content);
       
-      // Простой анализ по ключевым словам
-      const lowerText = text.toLowerCase();
-      
-      jsonResult = {
-        sleep: lowerText.includes('плохо спал') || lowerText.includes('не выспался') ? -1 : 
-               lowerText.includes('хорошо спал') || lowerText.includes('выспался') ? 1 : 0,
-        mood: lowerText.includes('грустно') || lowerText.includes('плохо') ? -1 :
-              lowerText.includes('хорошо') || lowerText.includes('отлично') ? 1 : 0,
-        health: lowerText.includes('болит') || lowerText.includes('плохо себя') ? -1 :
-                lowerText.includes('здоров') || lowerText.includes('хорошо себя') ? 1 : 0,
-        activity: lowerText.includes('спорт') || lowerText.includes('тренировка') ? 3 :
-                  lowerText.includes('бег') || lowerText.includes('пробежка') ? 2 :
-                  lowerText.includes('прогулка') || lowerText.includes('ходьба') ? 1 : 0,
-        calMin: 1800 + (lowerText.includes('много ел') ? 400 : 0),
-        calMax: 2200 + (lowerText.includes('много ел') ? 600 : 0),
-        vege: lowerText.includes('овощи') || lowerText.includes('салат') ? 70 : 30,
-        coffee: (lowerText.match(/кофе/g) || []).length || 1,
-        alco: (lowerText.match(/пиво|вино|алкоголь/g) || []).length,
-        summary: "Анализ выполнен по ключевым словам"
-      };
+      // Пытаемся извлечь JSON из текста, если он обернут в дополнительный текст
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          jsonResult = JSON.parse(jsonMatch[0]);
+          console.log('Successfully extracted JSON from text');
+        } catch (secondTryError) {
+          throw new Error(`Failed to parse JSON: ${parseError.message}`);
+        }
+      } else {
+        throw new Error(`No valid JSON found in response: ${content}`);
+      }
     }
 
     // Добавляем оригинальный текст
     jsonResult.original = text;
 
-    console.log('Final result:', jsonResult);
+    console.log('Final validated result:', jsonResult);
     return res.status(200).json(jsonResult);
 
   } catch (error) {
-    console.error('Unexpected error in /api/analyze:', error);
+    console.error('Error in Groq analysis:', error);
     
-    // Возвращаем дефолтные значения при любой ошибке
-    return res.status(200).json({
-      sleep: 0,
-      mood: 0,
-      health: 0,
-      activity: 1,
-      calMin: 1800,
-      calMax: 2200,
-      vege: 30,
-      coffee: 1,
-      alco: 0,
-      summary: "Произошла ошибка, использованы стандартные значения",
+    // Возвращаем ошибку с деталями для отладки
+    return res.status(500).json({
+      error: 'Analysis failed',
+      message: error.message,
       original: text
     });
   }
