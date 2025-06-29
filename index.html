@@ -124,6 +124,36 @@
       return entries.sort((a, b) => new Date(b.date) - new Date(a.date));
     }
 
+    // РЕАЛЬНЫЙ API ВЫЗОВ К GROQ (заменяет simulateAnalysis)
+    async function callGroqAPI(dayText) {
+      try {
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: dayText
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP ${response.status}: ${errorData.message || 'Unknown error'}`);
+        }
+
+        const result = await response.json();
+        
+        // Результат уже содержит все нужные поля:
+        // sleep, mood, health, activity, calMin, calMax, vege, coffee, alco, summary, original
+        return result;
+        
+      } catch (error) {
+        console.error('API Error:', error);
+        throw new Error(`Ошибка анализа ИИ: ${error.message}`);
+      }
+    }
+
     // Глобальные переменные для доступа из React
     window.generateTestData = generateTestData;
     window.generateHealthEntry = generateHealthEntry;
@@ -132,6 +162,7 @@
     window.healthToText = healthToText;
     window.activityToText = activityToText;
     window.getMetricText = getMetricText;
+    window.callGroqAPI = callGroqAPI;
   </script>
 
   <script type="text/babel">
@@ -155,6 +186,7 @@
       const [editingEntry, setEditingEntry] = useState(null);
       const [isEditing, setIsEditing] = useState(false);
       const [showDataPanel, setShowDataPanel] = useState(false);
+      const [apiError, setApiError] = useState('');
 
       // Refs для графиков
       const refHealth = useRef();
@@ -264,77 +296,10 @@
         setEditingEntry(null);
         setText('');
         setIsEditing(false);
+        setApiError('');
       };
 
-      // Имитация API анализа (вместо реального запроса)
-      const simulateAnalysis = async (dayText) => {
-        // Имитируем задержку сети
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        const lowerText = dayText.toLowerCase();
-        
-        let sleep = 0;
-        if (lowerText.includes('плохо спал') || lowerText.includes('бессонница')) sleep = -1;
-        if (lowerText.includes('хорошо спал') || lowerText.includes('выспался')) sleep = 1;
-        if (lowerText.includes('не спал') || lowerText.includes('ужасно спал')) sleep = -2;
-        if (lowerText.includes('отлично спал') || lowerText.includes('прекрасно спал')) sleep = 2;
-        
-        let mood = 0;
-        if (lowerText.includes('грустно') || lowerText.includes('плохое настроение')) mood = -1;
-        if (lowerText.includes('хорошее настроение') || lowerText.includes('весело')) mood = 1;
-        if (lowerText.includes('депрессия') || lowerText.includes('ужасное настроение')) mood = -2;
-        if (lowerText.includes('отличное настроение') || lowerText.includes('прекрасно')) mood = 2;
-        
-        let health = 0;
-        if (lowerText.includes('болит') || lowerText.includes('плохо себя чувствую')) health = -1;
-        if (lowerText.includes('хорошо себя чувствую') || lowerText.includes('энергичен')) health = 1;
-        if (lowerText.includes('очень плохо') || lowerText.includes('болен')) health = -2;
-        if (lowerText.includes('отлично себя чувствую') || lowerText.includes('полон энергии')) health = 2;
-        
-        let activity = 1;
-        if (lowerText.includes('лежал') || lowerText.includes('ничего не делал')) activity = 0;
-        if (lowerText.includes('прогулка') || lowerText.includes('пешком')) activity = 2;
-        if (lowerText.includes('спорт') || lowerText.includes('тренировка')) activity = 3;
-        if (lowerText.includes('марафон') || lowerText.includes('интенсивная тренировка')) activity = 4;
-        
-        let coffee = 1;
-        const coffeeMatches = lowerText.match(/(\d+)\s*(чашк|кофе|эспрессо)/g);
-        if (coffeeMatches) {
-          const numbers = coffeeMatches.map(match => parseInt(match.match(/\d+/)[0]));
-          coffee = Math.max(...numbers);
-        }
-        if (lowerText.includes('много кофе')) coffee = 4;
-        if (lowerText.includes('без кофе') || lowerText.includes('не пил кофе')) coffee = 0;
-        
-        let alco = 0;
-        if (lowerText.includes('пиво') || lowerText.includes('вино')) alco = 1;
-        if (lowerText.includes('бокал') && lowerText.includes('вина')) alco = 1;
-        if (lowerText.includes('бутылка')) alco = 2;
-        if (lowerText.includes('много алкоголя')) alco = 3;
-        
-        let vege = 30;
-        if (lowerText.includes('салат') || lowerText.includes('овощи')) vege += 30;
-        if (lowerText.includes('фрукты')) vege += 20;
-        if (lowerText.includes('только мясо') || lowerText.includes('фастфуд')) vege = 10;
-        vege = Math.max(0, Math.min(100, vege));
-        
-        const calMin = 1600 + Math.floor(Math.random() * 400);
-        const calMax = calMin + 200 + Math.floor(Math.random() * 400);
-        
-        const summary = sleep === -1 ? 'день с плохим сном' : 
-                       sleep === 1 ? 'день с хорошим сном' : 
-                       mood === 1 ? 'хороший день' :
-                       mood === -1 ? 'сложный день' :
-                       'обычный день';
-        
-        return {
-          sleep, mood, health, activity,
-          calMin, calMax, vege, coffee, alco,
-          summary, original: dayText
-        };
-      };
-
-      // Анализ дня
+      // Анализ дня ЧЕРЕЗ РЕАЛЬНЫЙ API
       const handleAnalyze = async () => {
         if (!text.trim()) {
           alert('Опишите день.');
@@ -347,8 +312,11 @@
         }
         
         setLoading(true);
+        setApiError('');
+        
         try {
-          const metrics = await simulateAnalysis(text);
+          // ИСПОЛЬЗУЕМ РЕАЛЬНЫЙ API ВМЕСТО ЗАГЛУШКИ
+          const metrics = await window.callGroqAPI(text);
           
           if (isEditing) {
             setEntries(prev => 
@@ -369,8 +337,8 @@
           handleCancelEdit();
           
         } catch(err) {
-          console.error(err);
-          alert('Ошибка анализа: ' + err.message);
+          console.error('API Error:', err);
+          setApiError(err.message);
         } finally {
           setLoading(false);
         }
@@ -664,7 +632,7 @@
                 {user.name}, {user.height} см, {user.weight} кг — норма {calorieNorm} ккал/день
               </p>
               <p className="text-sm text-blue-600 mt-2">
-                📊 Записей в системе: {entries.length}
+                📊 Записей в системе: {entries.length} | 🤖 Анализ через Groq Llama3
               </p>
             </div>
           </header>
@@ -839,13 +807,24 @@
                     disabled={loading || !selectedDate}
                   />
                   
+                  {apiError && (
+                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-red-700 text-sm">
+                        <span className="font-medium">❌ Ошибка API:</span> {apiError}
+                      </p>
+                      <p className="text-red-600 text-xs mt-1">
+                        Проверьте настройку GROQ_API_KEY и доступность /api/analyze
+                      </p>
+                    </div>
+                  )}
+                  
                   <div className="flex gap-3 mt-4">
                     <button
                       onClick={handleAnalyze}
                       disabled={loading || !text.trim() || !selectedDate}
                       className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-xl disabled:bg-slate-300 font-medium transition-colors hover:bg-blue-600"
                     >
-                      {loading ? 'Анализирую…' : isEditing ? '🤖 Обновить запись' : '🤖 Создать запись'}
+                      {loading ? '🤖 Анализирую через ИИ…' : isEditing ? '🤖 Обновить через ИИ' : '🤖 Создать через ИИ'}
                     </button>
                     
                     {isEditing && (
@@ -890,7 +869,7 @@
                   
                   <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
                     <p className="text-xs text-blue-700">
-                      <strong>Совет:</strong> Чем подробнее опишете день, тем точнее будет анализ ИИ!
+                      <strong>🤖 Новинка:</strong> Теперь анализ через настоящий ИИ Groq Llama3! Опишите день подробно - ИИ поймет контекст.
                     </p>
                   </div>
                 </div>
