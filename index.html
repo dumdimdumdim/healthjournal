@@ -128,25 +128,12 @@ ${summaries}
       let alco = 0;
       if (lowerText.includes('вино') || lowerText.includes('бокал')) alco = randomBetween(1, 2);
       
-      // Исправленный алгоритм овощей - более реалистичный
-      let vege = 15; // Базовое значение снижено
-      if (lowerText.includes('салат')) vege += 20;
-      if (lowerText.includes('овощ')) vege += 15;
-      if (lowerText.includes('фрукт')) vege += 10;
-      if (lowerText.includes('борщ')) vege += 5; // Борщ содержит овощи, но не так много
-      vege = Math.max(5, Math.min(80, vege)); // Максимум снижен до 80%
+      let vege = 30;
+      if (lowerText.includes('салат') || lowerText.includes('овощ')) vege += 30;
+      vege = Math.max(10, Math.min(100, vege));
       
-      // Исправленный алгоритм калорий с учетом алкоголя и кофе
-      let baseCalories = 1400 + randomBetween(0, 300); // Базовые калории от еды
-      
-      // Добавляем калории от кофе (примерно 5 ккал за чашку черного кофе)
-      const coffeeCalories = coffee * 5;
-      
-      // Добавляем калории от алкоголя (примерно 120 ккал за бокал вина)
-      const alcoCalories = alco * 120;
-      
-      const calMin = baseCalories + coffeeCalories + alcoCalories;
-      const calMax = calMin + randomBetween(150, 400); // Разброс уменьшен
+      const calMin = 1600 + randomBetween(0, 400);
+      const calMax = calMin + randomBetween(200, 600);
       
       const summary = sleep === -1 ? 'плохо спал' : sleep === 1 ? 'хорошо спал' : 'обычный день';
       
@@ -450,11 +437,18 @@ ${summaries}
         
         const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
         
+        // Эмодзи для оси X
+        const dateEmojis = sortedEntries.map((e, i) => {
+          const dayOfWeek = new Date(e.date).getDay();
+          const emojis = ['🌙', '🌱', '🔥', '🌿', '⚡', '🎉', '☀️']; // Вс, Пн, Вт, Ср, Чт, Пт, Сб
+          return emojis[dayOfWeek];
+        });
+        
         if (window.chartHealth) window.chartHealth.destroy();
         window.chartHealth = new Chart(ctx, {
           type: 'line',
           data: {
-            labels: sortedEntries.map(e => e.date.slice(5).replace('-', '.')),
+            labels: dateEmojis,
             datasets: [
               { 
                 label: 'Сон', 
@@ -522,7 +516,8 @@ ${summaries}
             },
             scales: { 
               x: {
-                grid: { display: false }
+                grid: { display: false },
+                ticks: { font: { size: 20 } }
               },
               y: { 
                 min: -2.2, 
@@ -539,14 +534,14 @@ ${summaries}
                 ticks: { 
                   stepSize: 1,
                   callback: function(value) {
-                    const emojiLabels = {
-                      '-2': '👎👎',
-                      '-1': '👎',
-                      '0': '👌', 
-                      '1': '👍',
-                      '2': '👍👍'
+                    const labels = {
+                      '-2': 'Ужасно',
+                      '-1': 'Плохо',
+                      '0': 'Нормально', 
+                      '1': 'Хорошо',
+                      '2': 'Отлично'
                     };
-                    return emojiLabels[value.toString()] || '';
+                    return labels[value.toString()] || '';
                   }
                 }
               } 
@@ -561,11 +556,18 @@ ${summaries}
         
         const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
         
+        // Эмодзи для оси X
+        const dateEmojis = sortedEntries.map((e, i) => {
+          const dayOfWeek = new Date(e.date).getDay();
+          const emojis = ['🌙', '🌱', '🔥', '🌿', '⚡', '🎉', '☀️'];
+          return emojis[dayOfWeek];
+        });
+        
         if (window.chartAct) window.chartAct.destroy();
         window.chartAct = new Chart(ctx, {
           type: 'bar',
           data: {
-            labels: sortedEntries.map(e => e.date.slice(5).replace('-', '.')),
+            labels: dateEmojis,
             datasets: [{
               label: 'Активность',
               data: sortedEntries.map(e => e.activity),
@@ -602,7 +604,8 @@ ${summaries}
             },
             scales: { 
               x: {
-                grid: { display: false }
+                grid: { display: false },
+                ticks: { font: { size: 20 } }
               },
               y: { 
                 min: 0, 
@@ -642,65 +645,20 @@ ${summaries}
         let shapeColor = '';
         
         if (calorieGoal === 'lose') {
-          targetCalories = Math.round(calorieNorm * 0.75); // Снижено с 0.8 до 0.75
+          targetCalories = Math.round(calorieNorm * 0.8);
           goalText = 'Снижение веса';
           shapeColor = 'rgba(59, 130, 246, 0.2)';
         } else if (calorieGoal === 'gain') {
-          targetCalories = Math.round(calorieNorm * 1.15); // Снижено с 1.2 до 1.15
+          targetCalories = Math.round(calorieNorm * 1.2);
           goalText = 'Набор массы';
           shapeColor = 'rgba(245, 158, 11, 0.2)';
         } else {
-          targetCalories = Math.round(calorieNorm * 0.95); // Снижено с 1.0 до 0.95
           goalText = 'Поддержание веса';
           shapeColor = 'rgba(16, 185, 129, 0.2)';
         }
         
-        const normMin = targetCalories * 0.85; // Сузили диапазон
-        const normMax = targetCalories * 1.15;
-        
-        const shape = [{
-          type: 'rect', xref: 'paper', yref: 'y',
-          x0: 0, x1: 1, y0: normMin, y1: normMax,
-          fillcolor: shapeColor, line: { width: 0 }
-        }];
-
-        const trace = {
-          x: dates, y: centers, mode: 'markers',
-          marker: { color: colors, size: 12 },
-          error_y: { type: 'data', array: errUp, arrayminus: errDn, thickness: 2, width: 6 },
-          customdata: sortedEntries.map(e => [e.vege, e.coffee, e.alco]),
-          hovertemplate:
-            '<b>%{x}</b><br>' +
-            'Калории: %{y-error_y.arrayminus:.0f}–%{y+error_y.array:.0f} ккал<br>' +
-            'Овощи: %{customdata[0]}%<br>' +
-            '☕ %{customdata[1]}  🍺 %{customdata[2]}<extra></extra>'
-        };
-
-        const layout = {
-          title: { 
-            text: '🍎 Питание и калории<br><sub style="color: #666; font-size: 12px;">Цель: ' + goalText + ' (' + targetCalories + ' ккал/день)</sub>'
-          },
-          shapes: shape,
-          xaxis: { title: 'День', showgrid: false },
-          yaxis: { title: 'ккал', showgrid: true },
-          margin: { t: 60, b: 60, l: 60, r: 20 },
-          showlegend: false,
-          annotations: [{
-            x: 0.02,
-            y: 0.98,
-            xref: 'paper',
-            yref: 'paper',
-            text: '🎯 Целевая зона: ' + normMin.toFixed(0) + '-' + normMax.toFixed(0) + ' ккал',
-            showarrow: false,
-            font: { size: 11, color: '#666' },
-            bgcolor: 'rgba(255,255,255,0.8)',
-            bordercolor: '#ddd',
-            borderwidth: 1
-          }]
-        };
-
-        Plotly.react(refCalories.current, [trace], layout, { displayModeBar: false, responsive: true });
-      };
+        const normMin = targetCalories * 0.9;
+        const normMax = targetCalories * 1.1;
         
         const shape = [{
           type: 'rect', xref: 'paper', yref: 'y',
