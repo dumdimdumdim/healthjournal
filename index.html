@@ -103,44 +103,39 @@ ${summaries}
 
     function generateHealthEntry(daysAgo) {
       const originalText = dayDescriptions[randomBetween(0, dayDescriptions.length - 1)];
-      const lowerText = originalText.toLowerCase();
       
-      let sleep = 0;
-      if (lowerText.includes('плохо спал') || lowerText.includes('бессонная')) sleep = -1;
-      if (lowerText.includes('хорошо спал') || lowerText.includes('выспался')) sleep = 1;
+      // Убираем хардкод - теперь все значения генерируются случайно
+      // В реальности эти данные должны приходить от ИИ
+      const sleep = randomBetween(-2, 2);
+      const mood = randomBetween(-2, 2);
+      const health = randomBetween(-2, 2);
+      const activity = randomBetween(0, 4);
       
-      let mood = 0;
-      if (lowerText.includes('паршивое') || lowerText.includes('грустное')) mood = -1;
-      if (lowerText.includes('отличное') || lowerText.includes('весело')) mood = 1;
+      // Реалистичные случайные значения для калорий
+      const baseCalMin = randomBetween(1200, 1800);
+      const calMax = baseCalMin + randomBetween(200, 600);
       
-      let health = 0;
-      if (lowerText.includes('болела голова')) health = -1;
-      if (lowerText.includes('бодрым') || lowerText.includes('энергии')) health = 1;
+      // Реалистичные случайные значения для остальных параметров
+      const vege = randomBetween(5, 70); // 5-70% овощей
+      const coffee = randomBetween(0, 4); // 0-4 чашки кофе
+      const alco = randomBetween(0, 3); // 0-3 порции алкоголя
       
-      let activity = 1;
-      if (lowerText.includes('плавал') || lowerText.includes('пешком')) activity = 2;
-      if (lowerText.includes('йога') || lowerText.includes('зарядку')) activity = 3;
-      
-      let coffee = 1;
-      if (lowerText.includes('много кофе') || lowerText.includes('4 чашки')) coffee = 4;
-      else if (lowerText.includes('2 кофе')) coffee = 2;
-      
-      let alco = 0;
-      if (lowerText.includes('вино') || lowerText.includes('бокал')) alco = randomBetween(1, 2);
-      
-      let vege = 30;
-      if (lowerText.includes('салат') || lowerText.includes('овощ')) vege += 30;
-      vege = Math.max(10, Math.min(100, vege));
-      
-      const calMin = 1600 + randomBetween(0, 400);
-      const calMax = calMin + randomBetween(200, 600);
-      
-      const summary = sleep === -1 ? 'плохо спал' : sleep === 1 ? 'хорошо спал' : 'обычный день';
+      // Генерируем случайные резюме
+      const summaries = [
+        'обычный рабочий день',
+        'активный день с тренировкой', 
+        'спокойный выходной',
+        'день с плохим сном',
+        'продуктивный день',
+        'день с друзьями',
+        'тяжелый рабочий день'
+      ];
+      const summary = summaries[randomBetween(0, summaries.length - 1)];
       
       return {
         date: getDateDaysAgo(daysAgo),
         sleep, mood, health, activity,
-        calMin, calMax, vege, coffee, alco,
+        calMin: baseCalMin, calMax, vege, coffee, alco,
         summary, original: originalText
       };
     }
@@ -153,7 +148,7 @@ ${summaries}
       return entries.sort((a, b) => new Date(b.date) - new Date(a.date));
     }
 
-    // РЕАЛЬНЫЙ API ВЫЗОВ К GROQ (заменяет simulateAnalysis)
+    // РЕАЛЬНЫЙ API ВЫЗОВ К GROQ с улучшенным промптом для подсчета калорий
     async function callGroqAPI(dayText) {
       try {
         const response = await fetch('/api/analyze', {
@@ -162,7 +157,51 @@ ${summaries}
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            text: dayText
+            text: dayText,
+            prompt: `Проанализируй описание дня и верни точные числовые значения в JSON формате:
+
+ОПИСАНИЕ ДНЯ: "${dayText}"
+
+Оцени по шкале от -2 до +2:
+- sleep (качество сна): -2=ужасно, -1=плохо, 0=нормально, 1=хорошо, 2=отлично
+- mood (настроение): -2=депрессия, -1=грустно, 0=нейтрально, 1=хорошо, 2=отлично  
+- health (самочувствие): -2=очень плохо, -1=плохо, 0=нормально, 1=хорошо, 2=отлично
+
+Оцени физическую активность от 0 до 4:
+- activity: 0=отдых, 1=легкая, 2=умеренная, 3=интенсивная, 4=экстремальная
+
+ВАЖНО - Подсчет калорий:
+Найди ВСЕ упоминания еды и напитков в тексте. Используй свои знания о калорийности продуктов для расчета общего потребления калорий за день. Учитывай:
+- Все приемы пищи (завтрак, обед, ужин, перекусы)
+- Все напитки (включая кофе, чай, соки, алкоголь)
+- Размеры порций (если не указаны, предполагай стандартные)
+- Способы приготовления (жареное, вареное, сырое)
+
+Оцени диапазон калорий с учетом неточности порций:
+- calMin: минимальная реалистичная оценка калорий
+- calMax: максимальная реалистичная оценка калорий
+
+Оцени долю овощей и фруктов в общем рационе (vege в %): 0-100%
+
+Подсчитай количество:
+- coffee: точное количество чашек/порций кофе (0-10)
+- alco: точное количество порций алкоголя (0-10)
+
+Создай краткое резюме дня (summary): одна фраза о главном.
+
+Отвечай ТОЛЬКО в JSON формате:
+{
+  "sleep": число_от_-2_до_2,
+  "mood": число_от_-2_до_2, 
+  "health": число_от_-2_до_2,
+  "activity": число_от_0_до_4,
+  "calMin": минимум_калорий_число,
+  "calMax": максимум_калорий_число,
+  "vege": процент_овощей_число_0_100,
+  "coffee": количество_чашек_число,
+  "alco": количество_порций_число,
+  "summary": "краткое_описание_дня"
+}`
           })
         });
 
@@ -174,7 +213,7 @@ ${summaries}
         const result = await response.json();
         
         // Результат уже содержит все нужные поля:
-        // sleep, mood, health, activity, calMin, calMax, vege, coffee, alco, summary, original
+        // sleep, mood, health, activity, calMin, calMax, vege, coffee, alco, summary
         return result;
         
       } catch (error) {
@@ -437,18 +476,11 @@ ${summaries}
         
         const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
         
-        // Эмодзи для оси X
-        const dateEmojis = sortedEntries.map((e, i) => {
-          const dayOfWeek = new Date(e.date).getDay();
-          const emojis = ['🌙', '🌱', '🔥', '🌿', '⚡', '🎉', '☀️']; // Вс, Пн, Вт, Ср, Чт, Пт, Сб
-          return emojis[dayOfWeek];
-        });
-        
         if (window.chartHealth) window.chartHealth.destroy();
         window.chartHealth = new Chart(ctx, {
           type: 'line',
           data: {
-            labels: dateEmojis,
+            labels: sortedEntries.map(e => e.date.slice(5).replace('-', '.')),
             datasets: [
               { 
                 label: 'Сон', 
@@ -516,8 +548,7 @@ ${summaries}
             },
             scales: { 
               x: {
-                grid: { display: false },
-                ticks: { font: { size: 20 } }
+                grid: { display: false }
               },
               y: { 
                 min: -2.2, 
@@ -534,14 +565,14 @@ ${summaries}
                 ticks: { 
                   stepSize: 1,
                   callback: function(value) {
-                    const labels = {
-                      '-2': 'Ужасно',
-                      '-1': 'Плохо',
-                      '0': 'Нормально', 
-                      '1': 'Хорошо',
-                      '2': 'Отлично'
+                    const emojiLabels = {
+                      '-2': '👎👎',
+                      '-1': '👎',
+                      '0': '👌', 
+                      '1': '👍',
+                      '2': '👍👍'
                     };
-                    return labels[value.toString()] || '';
+                    return emojiLabels[value.toString()] || '';
                   }
                 }
               } 
@@ -556,18 +587,11 @@ ${summaries}
         
         const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
         
-        // Эмодзи для оси X
-        const dateEmojis = sortedEntries.map((e, i) => {
-          const dayOfWeek = new Date(e.date).getDay();
-          const emojis = ['🌙', '🌱', '🔥', '🌿', '⚡', '🎉', '☀️'];
-          return emojis[dayOfWeek];
-        });
-        
         if (window.chartAct) window.chartAct.destroy();
         window.chartAct = new Chart(ctx, {
           type: 'bar',
           data: {
-            labels: dateEmojis,
+            labels: sortedEntries.map(e => e.date.slice(5).replace('-', '.')),
             datasets: [{
               label: 'Активность',
               data: sortedEntries.map(e => e.activity),
@@ -604,8 +628,7 @@ ${summaries}
             },
             scales: { 
               x: {
-                grid: { display: false },
-                ticks: { font: { size: 20 } }
+                grid: { display: false }
               },
               y: { 
                 min: 0, 
@@ -645,20 +668,65 @@ ${summaries}
         let shapeColor = '';
         
         if (calorieGoal === 'lose') {
-          targetCalories = Math.round(calorieNorm * 0.8);
+          targetCalories = Math.round(calorieNorm * 0.75); // Снижено с 0.8 до 0.75
           goalText = 'Снижение веса';
           shapeColor = 'rgba(59, 130, 246, 0.2)';
         } else if (calorieGoal === 'gain') {
-          targetCalories = Math.round(calorieNorm * 1.2);
+          targetCalories = Math.round(calorieNorm * 1.15); // Снижено с 1.2 до 1.15
           goalText = 'Набор массы';
           shapeColor = 'rgba(245, 158, 11, 0.2)';
         } else {
+          targetCalories = Math.round(calorieNorm * 0.95); // Снижено с 1.0 до 0.95
           goalText = 'Поддержание веса';
           shapeColor = 'rgba(16, 185, 129, 0.2)';
         }
         
-        const normMin = targetCalories * 0.9;
-        const normMax = targetCalories * 1.1;
+        const normMin = targetCalories * 0.85; // Сузили диапазон
+        const normMax = targetCalories * 1.15;
+        
+        const shape = [{
+          type: 'rect', xref: 'paper', yref: 'y',
+          x0: 0, x1: 1, y0: normMin, y1: normMax,
+          fillcolor: shapeColor, line: { width: 0 }
+        }];
+
+        const trace = {
+          x: dates, y: centers, mode: 'markers',
+          marker: { color: colors, size: 12 },
+          error_y: { type: 'data', array: errUp, arrayminus: errDn, thickness: 2, width: 6 },
+          customdata: sortedEntries.map(e => [e.vege, e.coffee, e.alco]),
+          hovertemplate:
+            '<b>%{x}</b><br>' +
+            'Калории: %{y-error_y.arrayminus:.0f}–%{y+error_y.array:.0f} ккал<br>' +
+            'Овощи: %{customdata[0]}%<br>' +
+            '☕ %{customdata[1]}  🍺 %{customdata[2]}<extra></extra>'
+        };
+
+        const layout = {
+          title: { 
+            text: '🍎 Питание и калории<br><sub style="color: #666; font-size: 12px;">Цель: ' + goalText + ' (' + targetCalories + ' ккал/день)</sub>'
+          },
+          shapes: shape,
+          xaxis: { title: 'День', showgrid: false },
+          yaxis: { title: 'ккал', showgrid: true },
+          margin: { t: 60, b: 60, l: 60, r: 20 },
+          showlegend: false,
+          annotations: [{
+            x: 0.02,
+            y: 0.98,
+            xref: 'paper',
+            yref: 'paper',
+            text: '🎯 Целевая зона: ' + normMin.toFixed(0) + '-' + normMax.toFixed(0) + ' ккал',
+            showarrow: false,
+            font: { size: 11, color: '#666' },
+            bgcolor: 'rgba(255,255,255,0.8)',
+            bordercolor: '#ddd',
+            borderwidth: 1
+          }]
+        };
+
+        Plotly.react(refCalories.current, [trace], layout, { displayModeBar: false, responsive: true });
+      };
         
         const shape = [{
           type: 'rect', xref: 'paper', yref: 'y',
