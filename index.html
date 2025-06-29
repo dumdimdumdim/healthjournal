@@ -169,7 +169,7 @@
   function HealthTracker() {
     const user = { weight: 75, height: 175, age: 28, name: 'Тестовый пользователь' };
     const bmr = 88.362 + 13.397 * user.weight + 4.799 * user.height - 5.677 * user.age;
-    const calorieNorm = Math.round(bmr * 1.55);
+    const calorieNorm = Math.round(bmr * 1.375); // Изменил с 1.55 на 1.375 (легкая активность)
 
     const [text, setText] = useState('');
     const [loading, setLoading] = useState(false);
@@ -178,6 +178,9 @@
     const [weeklyAdvice, setWeeklyAdvice] = useState('');
     const [showTestDataButton, setShowTestDataButton] = useState(true);
     const [calorieGoal, setCalorieGoal] = useState('maintain'); // maintain, lose, gain
+    const [selectedDate, setSelectedDate] = useState('');
+    const [editingEntry, setEditingEntry] = useState(null);
+    const [isEditing, setIsEditing] = useState(false);
 
     const refHealth = useRef();
     const refActivity = useRef();
@@ -218,21 +221,6 @@
       }
     };
 
-    const addRandomEntry = async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const existing = entries.find(e => e.date === today);
-      
-      if (existing && !confirm('Запись за сегодня уже есть. Заменить?')) {
-        return;
-      }
-      
-      const randomEntry = generateHealthEntry(0);
-      setEntries(prev => {
-        const filtered = prev.filter(e => e.date !== today);
-        return [randomEntry, ...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
-      });
-    };
-
     async function analyzeWithProxy(dayText) {
       const res = await fetch('/api/analyze', {
         method: 'POST',
@@ -244,24 +232,93 @@
       return res.json();
     }
 
+    // Генерируем массив последних 7 дней
+    const getLast7Days = () => {
+      const days = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        const dayName = date.toLocaleDateString('ru-RU', { weekday: 'short' });
+        const dayNum = date.getDate();
+        const hasEntry = entries.some(entry => entry.date === dateStr);
+        
+        days.push({
+          date: dateStr,
+          dayName,
+          dayNum,
+          hasEntry,
+          isToday: i === 0,
+          isFuture: i < 0
+        });
+      }
+      return days;
+    };
+
+    // Обработка выбора даты
+    const handleDateSelect = (dateStr) => {
+      const existingEntry = entries.find(entry => entry.date === dateStr);
+      
+      if (existingEntry) {
+        // Редактирование существующей записи
+        setSelectedDate(dateStr);
+        setEditingEntry(existingEntry);
+        setText(existingEntry.original || '');
+        setIsEditing(true);
+      } else {
+        // Создание новой записи
+        setSelectedDate(dateStr);
+        setEditingEntry(null);
+        setText('');
+        setIsEditing(false);
+      }
+    };
+
+    // Отмена редактирования
+    const handleCancelEdit = () => {
+      setSelectedDate('');
+      setEditingEntry(null);
+      setText('');
+      setIsEditing(false);
+    };
+
+    // Обновленная функция анализа
     const handleAnalyze = async () => {
       if (!text.trim()) {
         alert('Опишите день.');
         return;
       }
+
+      if (!selectedDate) {
+        alert('Выберите дату для записи.');
+        return;
+      }
       
       setLoading(true);
       try {
-        const today = new Date().toISOString().split('T')[0];
         const metrics = await analyzeWithProxy(text);
         
-        setEntries(prev => {
-          const filtered = prev.filter(e => e.date !== today);
-          return [{ date: today, ...metrics }, ...filtered]
-            .sort((a, b) => new Date(b.date) - new Date(a.date));
-        });
+        if (isEditing) {
+          // Обновляем существующую запись
+          setEntries(prev => 
+            prev.map(entry => 
+              entry.date === selectedDate 
+                ? { ...entry, ...metrics, original: text }
+                : entry
+            ).sort((a, b) => new Date(b.date) - new Date(a.date))
+          );
+        } else {
+          // Создаем новую запись
+          setEntries(prev => {
+            const filtered = prev.filter(e => e.date !== selectedDate);
+            return [{ date: selectedDate, ...metrics }, ...filtered]
+              .sort((a, b) => new Date(b.date) - new Date(a.date));
+          });
+        }
         
-        setText('');
+        // Очищаем форму
+        handleCancelEdit();
+        
       } catch(err) {
         console.error(err);
         alert('Ошибка анализа: ' + err.message);
@@ -680,23 +737,132 @@
           </section>
         )}
 
-        <section className="bg-white p-4 rounded shadow">
-          <h3 className="font-semibold mb-2">✍️ Добавить новую запись</h3>
-          <textarea
-            className="w-full border p-2 rounded mb-2"
-            rows={4}
-            placeholder="Опишите свой день: как спали, что ели, какая была активность, настроение..."
-            value={text}
-            onChange={e => setText(e.target.value)}
-            disabled={loading}
-          />
-          <button
-            onClick={handleAnalyze}
-            disabled={loading || !text.trim()}
-            className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
-          >
-            {loading ? 'Анализирую…' : '🤖 Анализировать с помощью ИИ'}
-          </button>
+        <section className="bg-white rounded-lg shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-green-600 to-blue-600 px-6 py-4">
+            <h3 className="text-xl font-bold text-white">✍️ Добавить новую запись</h3>
+          </div>
+          
+          <div className="p-6">
+            {/* Календарь последних 7 дней */}
+            <div className="mb-6">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Выберите день для записи:</h4>
+              <div className="grid grid-cols-7 gap-2">
+                {getLast7Days().map((day) => (
+                  <button
+                    key={day.date}
+                    onClick={() => handleDateSelect(day.date)}
+                    disabled={day.isFuture}
+                    className={`p-3 rounded-lg border-2 transition-all text-sm font-medium ${
+                      selectedDate === day.date
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : day.hasEntry
+                        ? 'border-green-200 bg-green-50 text-green-700 hover:border-green-300'
+                        : day.isFuture
+                        ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="text-xs">{day.dayName}</div>
+                    <div className="font-bold">{day.dayNum}</div>
+                    <div className="text-xs mt-1">
+                      {selectedDate === day.date ? (
+                        <span className="text-blue-600">✏️ Выбран</span>
+                      ) : day.hasEntry ? (
+                        <span className="text-green-600">✅ Есть</span>
+                      ) : day.isFuture ? (
+                        <span className="text-gray-400">⏳ Ждем</span>
+                      ) : (
+                        <span className="text-orange-600">⭕ Пусто</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Основная форма */}
+            <div className="grid lg:grid-cols-2 gap-6">
+              {/* Левая колонка - ввод текста */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {isEditing ? 'Редактировать запись:' : 'Описание дня:'}
+                </label>
+                <textarea
+                  className="w-full border border-gray-300 rounded-lg p-3 text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  rows={10}
+                  placeholder={
+                    selectedDate 
+                      ? `Опишите день ${new Date(selectedDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}...`
+                      : "Сначала выберите день выше..."
+                  }
+                  value={text}
+                  onChange={e => setText(e.target.value)}
+                  disabled={loading || !selectedDate}
+                />
+                
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={handleAnalyze}
+                    disabled={loading || !text.trim() || !selectedDate}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:bg-gray-400 font-medium transition-colors hover:bg-blue-700"
+                  >
+                    {loading ? 'Анализирую…' : isEditing ? '🤖 Обновить запись' : '🤖 Создать запись'}
+                  </button>
+                  
+                  {isEditing && (
+                    <button
+                      onClick={handleCancelEdit}
+                      className="px-4 py-2 bg-gray-500 text-white rounded-lg font-medium transition-colors hover:bg-gray-600"
+                    >
+                      Отмена
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Правая колонка - подсказки */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h5 className="font-medium text-gray-800 mb-3">💡 Что описать в записи:</h5>
+                <div className="space-y-3 text-sm text-gray-600">
+                  <div>
+                    <strong className="text-gray-800">😴 Сон:</strong>
+                    <p>Как спали? Сколько часов? Качество сна?</p>
+                  </div>
+                  
+                  <div>
+                    <strong className="text-gray-800">🍽️ Питание:</strong>
+                    <p>Завтрак, обед, ужин. Перекусы, овощи, фрукты.</p>
+                  </div>
+                  
+                  <div>
+                    <strong className="text-gray-800">☕ Напитки:</strong>
+                    <p>Сколько кофе? Чай? Алкоголь? Вода?</p>
+                  </div>
+                  
+                  <div>
+                    <strong className="text-gray-800">😊 Настроение:</strong>
+                    <p>Как себя чувствовали эмоционально?</p>
+                  </div>
+                  
+                  <div>
+                    <strong className="text-gray-800">🏃 Активность:</strong>
+                    <p>Спорт, прогулки, физический труд, зал?</p>
+                  </div>
+                  
+                  <div>
+                    <strong className="text-gray-800">❤️ Самочувствие:</strong>
+                    <p>Здоровье, энергия, болезни, усталость?</p>
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
+                  <p className="text-xs text-blue-700">
+                    <strong>Совет:</strong> Чем подробнее опишете день, тем точнее будет анализ ИИ!
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         {entries.length > 0 && (
