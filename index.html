@@ -4,28 +4,26 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AI Health Tracker</title>
-  <!-- React 17 и ReactDOM 17 -->
   <script crossorigin src="https://unpkg.com/react@17/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-  <!-- Babel для JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- TailwindCSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Plotly.js -->
   <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
   <style>
     .chart-container { position: relative; height: 300px; width: 100%; }
-    .card { border-radius: 12px; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03); }
+    .card { 
+      border-radius: 12px; 
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03); 
+    }
     .card-header { border-radius: 12px 12px 0 0; }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen p-4">
+<body class="bg-slate-50 min-h-screen p-4">
   <div id="root"></div>
 
   <script>
-    // Генератор тестовых данных
+    // Утилиты для генерации тестовых данных
     function randomBetween(min, max) {
       return Math.floor(Math.random() * (max - min + 1)) + min;
     }
@@ -36,64 +34,33 @@
       return date.toISOString().split('T')[0];
     }
 
-    // Функции для преобразования цифр в слова
+    // Функции преобразования
     function sleepToText(value) {
-      const texts = {
-        '-2': 'Ужасно',
-        '-1': 'Плохо', 
-        '0': 'Нормально',
-        '1': 'Хорошо',
-        '2': 'Отлично'
-      };
+      const texts = { '-2': 'Ужасно', '-1': 'Плохо', '0': 'Нормально', '1': 'Хорошо', '2': 'Отлично' };
       return texts[value.toString()] || 'Неизвестно';
     }
 
     function moodToText(value) {
-      const texts = {
-        '-2': 'Депрессия',
-        '-1': 'Грустно',
-        '0': 'Нейтрально', 
-        '1': 'Хорошо',
-        '2': 'Отлично'
-      };
+      const texts = { '-2': 'Депрессия', '-1': 'Грустно', '0': 'Нейтрально', '1': 'Хорошо', '2': 'Отлично' };
       return texts[value.toString()] || 'Неизвестно';
     }
 
     function healthToText(value) {
-      const texts = {
-        '-2': 'Очень плохо',
-        '-1': 'Плохо',
-        '0': 'Нормально',
-        '1': 'Хорошо', 
-        '2': 'Отлично'
-      };
+      const texts = { '-2': 'Очень плохо', '-1': 'Плохо', '0': 'Нормально', '1': 'Хорошо', '2': 'Отлично' };
       return texts[value.toString()] || 'Неизвестно';
     }
 
     function activityToText(value) {
-      const texts = {
-        '0': 'Отдых',
-        '1': 'Легкая',
-        '2': 'Умеренная',
-        '3': 'Интенсивная',
-        '4': 'Максимальная'
-      };
+      const texts = { '0': 'Отдых', '1': 'Легкая', '2': 'Умеренная', '3': 'Интенсивная', '4': 'Максимальная' };
       return texts[value.toString()] || 'Неизвестно';
     }
 
+    // Тестовые описания дней
     const dayDescriptions = [
       "хорошо выспался, позавтракал овсянкой с фруктами, пошел пешком на работу 2 км, выпил 2 кофе, на обед салат с курицей, вечером йога 30 минут, настроение отличное",
       "плохо спал всю ночь, болела голова, завтрак пропустил, выпил много кофе - 4 чашки, на обед только пельмени, после работы сразу домой, настроение паршивое",
       "проснулся бодрым, сделал зарядку, позавтракал яичницей с овощами, прошел пешком 3 км, выпил кофе утром, обедал борщом и салатом, вечером плавал в бассейне час, хорошее настроение",
-      "спал нормально, завтрак - творог с ягодами, ехал на автобусе, 2 кофе за день, обед в кафе - паста с овощами, вечером встреча с друзьями, выпили пару бокалов вина, весело",
-      "встал рано, чувствую себя отлично, завтрак дома - каша с фруктами, пробежка 5 км утром, один кофе, обед - рыба с овощами, вечером тренировка в зале, энергии полно",
-      "поздно лег, плохо выспался, завтрак на бегу - бутерброд, много кофе - 3 чашки, обед - фастфуд, вечером лежал на диване, грустное настроение, голова болит",
-      "выспался хорошо, утренняя прогулка с собакой 2 км, завтрак - омлет с зеленью, кофе с утра, обед дома - суп и салат, вечером читал книгу, спокойное настроение",
-      "бессонная ночь, встал разбитым, пропустил завтрак, выпил кофе на ходу, обед - доставка пиццы, после работы сразу спать, ужасное самочувствие весь день",
-      "отлично спал 8 часов, зарядка дома, завтрак - каша с орехами, велосипед до работы 4 км, кофе в офисе, обед - курица с овощами, вечером прогулка в парке, отличное настроение",
-      "спал беспокойно, проснулся уставшим, завтрак легкий - йогурт, пешком немного, 2 кофе, обед простой - гречка с мясом, вечером фильм дома, настроение так себе",
-      "выходной! спал до обеда, поздний завтрак - блины с вареньем, прогулка в центре города, кофе в кафе, ужин в ресторане с салатами, выпил бокал вина, расслабленное настроение",
-      "рано встал, чувствую легкую простуду, завтрак не лез, горячий чай вместо кофе, обед легкий - суп, весь день дома, рано лег спать, болезненное состояние"
+      "спал нормально, завтрак - творог с ягодами, ехал на автобусе, 2 кофе за день, обед в кафе - паста с овощами, вечером встреча с друзьями, выпили пару бокалов вина, весело"
     ];
 
     function generateHealthEntry(daysAgo) {
@@ -101,56 +68,42 @@
       const lowerText = originalText.toLowerCase();
       
       let sleep = 0;
-      if (lowerText.includes('плохо спал') || lowerText.includes('бессонная') || lowerText.includes('беспокойно')) sleep = -1;
-      if (lowerText.includes('хорошо спал') || lowerText.includes('отлично спал') || lowerText.includes('выспался')) sleep = 1;
-      if (lowerText.includes('до обеда')) sleep = 2;
+      if (lowerText.includes('плохо спал') || lowerText.includes('бессонная')) sleep = -1;
+      if (lowerText.includes('хорошо спал') || lowerText.includes('выспался')) sleep = 1;
       
       let mood = 0;
-      if (lowerText.includes('паршивое') || lowerText.includes('ужасное') || lowerText.includes('грустное')) mood = -1;
-      if (lowerText.includes('отличное') || lowerText.includes('хорошее') || lowerText.includes('весело')) mood = 1;
+      if (lowerText.includes('паршивое') || lowerText.includes('грустное')) mood = -1;
+      if (lowerText.includes('отличное') || lowerText.includes('весело')) mood = 1;
       
       let health = 0;
-      if (lowerText.includes('болела голова') || lowerText.includes('простуда') || lowerText.includes('болезненное')) health = -1;
-      if (lowerText.includes('отлично') || lowerText.includes('энергии полно') || lowerText.includes('бодрым')) health = 1;
+      if (lowerText.includes('болела голова')) health = -1;
+      if (lowerText.includes('бодрым') || lowerText.includes('энергии')) health = 1;
       
       let activity = 1;
-      if (lowerText.includes('лежал') || (lowerText.includes('дома') && !lowerText.includes('зарядка'))) activity = 0;
-      if (lowerText.includes('пробежка') || lowerText.includes('плавал') || lowerText.includes('велосипед')) activity = 2;
-      if (lowerText.includes('тренировка') || lowerText.includes('йога') || lowerText.includes('зале')) activity = 3;
+      if (lowerText.includes('плавал') || lowerText.includes('пешком')) activity = 2;
+      if (lowerText.includes('йога') || lowerText.includes('зарядку')) activity = 3;
       
       let coffee = 1;
-      if (lowerText.includes('много кофе') || lowerText.includes('4 кофе') || lowerText.includes('4 чашки')) coffee = 4;
-      else if (lowerText.includes('3 кофе')) coffee = 3;
+      if (lowerText.includes('много кофе') || lowerText.includes('4 чашки')) coffee = 4;
       else if (lowerText.includes('2 кофе')) coffee = 2;
-      else if (lowerText.includes('чай') && !lowerText.includes('кофе')) coffee = 0;
       
       let alco = 0;
       if (lowerText.includes('вино') || lowerText.includes('бокал')) alco = randomBetween(1, 2);
       
       let vege = 30;
       if (lowerText.includes('салат') || lowerText.includes('овощ')) vege += 30;
-      if (lowerText.includes('фрукт') || lowerText.includes('ягод')) vege += 20;
-      if (lowerText.includes('фастфуд') || lowerText.includes('пицца')) vege -= 10;
       vege = Math.max(10, Math.min(100, vege));
       
-      let baseCalories = 2000;
-      if (lowerText.includes('пропустил завтрак') || lowerText.includes('легкий')) baseCalories -= 300;
-      if (lowerText.includes('сытный') || lowerText.includes('ресторан')) baseCalories += 400;
-      if (activity >= 2) baseCalories += 200;
+      const calMin = 1600 + randomBetween(0, 400);
+      const calMax = calMin + randomBetween(200, 600);
       
-      const calMin = baseCalories - randomBetween(200, 400);
-      const calMax = baseCalories + randomBetween(200, 600);
-      
-      const sleepDesc = sleep === -1 ? 'плохо спал' : sleep === 1 ? 'хорошо спал' : 'обычный сон';
-      const moodDesc = mood === -1 ? 'плохое настроение' : mood === 1 ? 'хорошее настроение' : 'нейтральное настроение';
-      const activityDesc = ['отдыхал', 'легкая активность', 'умеренная активность', 'тренировки', 'интенсивные тренировки'][activity];
-      const summary = sleepDesc + ', ' + moodDesc + ', ' + activityDesc;
+      const summary = sleep === -1 ? 'плохо спал' : sleep === 1 ? 'хорошо спал' : 'обычный день';
       
       return {
         date: getDateDaysAgo(daysAgo),
-        sleep: sleep, mood: mood, health: health, activity: activity,
-        calMin: calMin, calMax: calMax, vege: vege, coffee: coffee, alco: alco,
-        summary: summary, original: originalText
+        sleep, mood, health, activity,
+        calMin, calMax, vege, coffee, alco,
+        summary, original: originalText
       };
     }
 
@@ -159,976 +112,579 @@
       for (let i = 1; i <= days; i++) {
         entries.push(generateHealthEntry(i));
       }
-      return entries.sort(function(a, b) { 
-        return new Date(b.date) - new Date(a.date); 
-      });
+      return entries.sort((a, b) => new Date(b.date) - new Date(a.date));
     }
+
+    // Глобальные переменные для доступа из React
+    window.generateTestData = generateTestData;
+    window.generateHealthEntry = generateHealthEntry;
+    window.sleepToText = sleepToText;
+    window.moodToText = moodToText;
+    window.healthToText = healthToText;
+    window.activityToText = activityToText;
   </script>
 
   <script type="text/babel">
-  const { useState, useEffect, useRef } = React;
+    const { useState, useEffect, useRef } = React;
 
-  function HealthTracker() {
-    const user = { weight: 75, height: 175, age: 28, name: 'Тестовый пользователь' };
-    const bmr = 88.362 + 13.397 * user.weight + 4.799 * user.height - 5.677 * user.age;
-    const calorieNorm = Math.round(bmr * 1.375); // Изменил с 1.55 на 1.375 (легкая активность)
+    function HealthTracker() {
+      // Основные настройки
+      const user = { weight: 75, height: 175, age: 28, name: 'Тестовый пользователь' };
+      const bmr = 88.362 + 13.397 * user.weight + 4.799 * user.height - 5.677 * user.age;
+      const calorieNorm = Math.round(bmr * 1.375);
 
-    const [text, setText] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [entries, setEntries] = useState([]);
-    const [weeklySummary, setWeeklySummary] = useState('');
-    const [weeklyAdvice, setWeeklyAdvice] = useState('');
-    const [showTestDataButton, setShowTestDataButton] = useState(true);
-    const [calorieGoal, setCalorieGoal] = useState('maintain'); // maintain, lose, gain
-    const [selectedDate, setSelectedDate] = useState('');
-    const [editingEntry, setEditingEntry] = useState(null);
-    const [isEditing, setIsEditing] = useState(false);
-    const [showDataPanel, setShowDataPanel] = useState(false);
+      // Состояния
+      const [text, setText] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [entries, setEntries] = useState([]);
+      const [weeklySummary, setWeeklySummary] = useState(null);
+      const [weeklyAdvice, setWeeklyAdvice] = useState('');
+      const [showTestDataButton, setShowTestDataButton] = useState(true);
+      const [calorieGoal, setCalorieGoal] = useState('maintain');
+      const [selectedDate, setSelectedDate] = useState('');
+      const [editingEntry, setEditingEntry] = useState(null);
+      const [isEditing, setIsEditing] = useState(false);
+      const [showDataPanel, setShowDataPanel] = useState(false);
 
-    const refHealth = useRef();
-    const refActivity = useRef();
-    const refCalories = useRef();
+      // Refs для графиков
+      const refHealth = useRef();
+      const refActivity = useRef();
+      const refCalories = useRef();
 
-    useEffect(() => {
-      const savedEntries = localStorage.getItem('healthEntries');
-      if (savedEntries) {
-        setEntries(JSON.parse(savedEntries));
+      // Загрузка данных при старте
+      useEffect(() => {
+        const savedEntries = localStorage.getItem('healthEntries');
+        if (savedEntries) {
+          try {
+            setEntries(JSON.parse(savedEntries));
+            setShowTestDataButton(false);
+          } catch (e) {
+            console.error('Ошибка загрузки данных:', e);
+          }
+        }
+      }, []);
+
+      // Обновление при изменении записей
+      useEffect(() => {
+        if (entries.length > 0) {
+          localStorage.setItem('healthEntries', JSON.stringify(entries));
+          updateWeekly();
+        }
+      }, [entries]);
+
+      // Функции для работы с данными
+      const loadTestData = () => {
+        const testData = window.generateTestData(14);
+        setEntries(testData);
         setShowTestDataButton(false);
-      }
-    }, []);
+      };
 
-    useEffect(() => {
-      if (entries.length > 0) {
-        localStorage.setItem('healthEntries', JSON.stringify(entries));
-        drawHealth();
-        drawActivity();
-        drawCalories();
-        updateWeekly();
-      }
-    }, [entries, calorieGoal]); // Добавили calorieGoal в зависимости
+      const clearAllData = () => {
+        if (confirm('Удалить все данные?')) {
+          setEntries([]);
+          localStorage.removeItem('healthEntries');
+          setShowTestDataButton(true);
+          setWeeklySummary(null);
+          setWeeklyAdvice('');
+        }
+      };
 
-    const loadTestData = () => {
-      const testData = generateTestData(14);
-      setEntries(testData);
-      setShowTestDataButton(false);
-      console.log('Загружено тестовых записей:', testData.length);
-    };
-
-    const clearAllData = () => {
-      if (confirm('Удалить все данные?')) {
-        setEntries([]);
-        localStorage.removeItem('healthEntries');
-        setShowTestDataButton(true);
-        setWeeklySummary('');
-        setWeeklyAdvice('');
-      }
-    };
-
-    async function analyzeWithProxy(dayText) {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: dayText })
-      });
-      
-      if (!res.ok) throw new Error('API Error: ' + res.status);
-      return res.json();
-    }
-
-    const addRandomEntry = async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const existing = entries.find(e => e.date === today);
-      
-      if (existing && !confirm('Запись за сегодня уже есть. Заменить?')) {
-        return;
-      }
-      
-      const randomEntry = generateHealthEntry(0);
-      setEntries(prev => {
-        const filtered = prev.filter(e => e.date !== today);
-        return [randomEntry, ...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
-      });
-    };
-
-    // Генерируем массив последних 7 дней
-    const getLast7Days = () => {
-      const days = [];
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
-        const dayName = date.toLocaleDateString('ru-RU', { weekday: 'short' });
-        const dayNum = date.getDate();
-        const hasEntry = entries.some(entry => entry.date === dateStr);
+      const addRandomEntry = () => {
+        const today = new Date().toISOString().split('T')[0];
+        const existing = entries.find(e => e.date === today);
         
-        days.push({
-          date: dateStr,
-          dayName,
-          dayNum,
-          hasEntry,
-          isToday: i === 0,
-          isFuture: i < 0
+        if (existing && !confirm('Запись за сегодня уже есть. Заменить?')) {
+          return;
+        }
+        
+        const randomEntry = window.generateHealthEntry(0);
+        setEntries(prev => {
+          const filtered = prev.filter(e => e.date !== today);
+          return [randomEntry, ...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
         });
-      }
-      return days;
-    };
+      };
 
-    // Обработка выбора даты
-    const handleDateSelect = (dateStr) => {
-      const existingEntry = entries.find(entry => entry.date === dateStr);
-      
-      if (existingEntry) {
-        // Редактирование существующей записи
-        setSelectedDate(dateStr);
-        setEditingEntry(existingEntry);
-        setText(existingEntry.original || '');
-        setIsEditing(true);
-      } else {
-        // Создание новой записи
-        setSelectedDate(dateStr);
+      // Генерация последних 7 дней для календаря
+      const getLast7Days = () => {
+        const days = [];
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          const dateStr = date.toISOString().split('T')[0];
+          const dayName = date.toLocaleDateString('ru-RU', { weekday: 'short' });
+          const dayNum = date.getDate();
+          const hasEntry = entries.some(entry => entry.date === dateStr);
+          
+          days.push({
+            date: dateStr,
+            dayName,
+            dayNum,
+            hasEntry,
+            isToday: i === 0,
+            isFuture: i < 0
+          });
+        }
+        return days;
+      };
+
+      // Обработка выбора даты
+      const handleDateSelect = (dateStr) => {
+        const existingEntry = entries.find(entry => entry.date === dateStr);
+        
+        if (existingEntry) {
+          setSelectedDate(dateStr);
+          setEditingEntry(existingEntry);
+          setText(existingEntry.original || '');
+          setIsEditing(true);
+        } else {
+          setSelectedDate(dateStr);
+          setEditingEntry(null);
+          setText('');
+          setIsEditing(false);
+        }
+      };
+
+      // Отмена редактирования
+      const handleCancelEdit = () => {
+        setSelectedDate('');
         setEditingEntry(null);
         setText('');
         setIsEditing(false);
-      }
-    };
-
-    // Отмена редактирования
-    const handleCancelEdit = () => {
-      setSelectedDate('');
-      setEditingEntry(null);
-      setText('');
-      setIsEditing(false);
-    };
-
-    // Обновленная функция анализа
-    const handleAnalyze = async () => {
-      if (!text.trim()) {
-        alert('Опишите день.');
-        return;
-      }
-
-      if (!selectedDate) {
-        alert('Выберите дату для записи.');
-        return;
-      }
-      
-      setLoading(true);
-      try {
-        const metrics = await analyzeWithProxy(text);
-        
-        if (isEditing) {
-          // Обновляем существующую запись
-          setEntries(prev => 
-            prev.map(entry => 
-              entry.date === selectedDate 
-                ? { ...entry, ...metrics, original: text }
-                : entry
-            ).sort((a, b) => new Date(b.date) - new Date(a.date))
-          );
-        } else {
-          // Создаем новую запись
-          setEntries(prev => {
-            const filtered = prev.filter(e => e.date !== selectedDate);
-            return [{ date: selectedDate, ...metrics }, ...filtered]
-              .sort((a, b) => new Date(b.date) - new Date(a.date));
-          });
-        }
-        
-        // Очищаем форму
-        handleCancelEdit();
-        
-      } catch(err) {
-        console.error(err);
-        alert('Ошибка анализа: ' + err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    function drawHealth() {
-      const ctx = refHealth.current?.getContext('2d');
-      if (!ctx || !entries.length) return;
-      
-      const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
-      
-      if (window.chartHealth) window.chartHealth.destroy();
-      window.chartHealth = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: sortedEntries.map(e => e.date.slice(5).replace('-', '.')),
-          datasets: [
-            { label: 'Сон', data: sortedEntries.map(e => e.sleep), borderColor: '#3b82f6', fill: false, tension: 0.3 },
-            { label: 'Настроение', data: sortedEntries.map(e => e.mood), borderColor: '#22c55e', fill: false, tension: 0.3 },
-            { label: 'Здоровье', data: sortedEntries.map(e => e.health), borderColor: '#a855f7', fill: false, tension: 0.3 }
-          ]
-        },
-        options: { 
-          responsive: true, 
-          maintainAspectRatio: false,
-          scales: { 
-            y: { 
-              min: -2, 
-              max: 2, 
-              ticks: { 
-                stepSize: 1,
-                callback: function(value) {
-                  const labels = {
-                    '-2': 'Ужасно',
-                    '-1': 'Плохо',
-                    '0': 'Нормально', 
-                    '1': 'Хорошо',
-                    '2': 'Отлично'
-                  };
-                  return labels[value.toString()] || value;
-                }
-              }
-            } 
-          },
-          plugins: {
-            tooltip: {
-              callbacks: {
-                afterLabel: function(context) {
-                  const entry = sortedEntries[context.dataIndex];
-                  if (context.dataset.label === 'Сон') return 'Сон: ' + sleepToText(entry.sleep);
-                  if (context.dataset.label === 'Настроение') return 'Настроение: ' + moodToText(entry.mood);
-                  if (context.dataset.label === 'Здоровье') return 'Здоровье: ' + healthToText(entry.health);
-                  return '';
-                }
-              }
-            }
-          }
-        }
-      });
-    }
-
-    function drawActivity() {
-      const ctx = refActivity.current?.getContext('2d');
-      if (!ctx || !entries.length) return;
-      
-      const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
-      
-      if (window.chartAct) window.chartAct.destroy();
-      window.chartAct = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: sortedEntries.map(e => e.date.slice(5).replace('-', '.')),
-          datasets: [{
-            label: 'Активность',
-            data: sortedEntries.map(e => e.activity),
-            backgroundColor: sortedEntries.map(e =>
-              e.activity === 0 ? '#9ca3af' :
-              e.activity === 1 ? '#22c55e' :
-              e.activity === 2 ? '#3b82f6' :
-              e.activity === 3 ? '#f59e0b' : '#ef4444'
-            )
-          }]
-        },
-        options: { 
-          responsive: true, 
-          maintainAspectRatio: false,
-          scales: { 
-            y: { 
-              min: 0, 
-              max: 4, 
-              ticks: { 
-                stepSize: 1,
-                callback: function(value) {
-                  const labels = {
-                    '0': 'Отдых',
-                    '1': 'Легкая',
-                    '2': 'Умеренная',
-                    '3': 'Интенсивная',
-                    '4': 'Максимальная'
-                  };
-                  return labels[value.toString()] || value;
-                }
-              }
-            } 
-          },
-          plugins: {
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  const entry = sortedEntries[context.dataIndex];
-                  return 'Активность: ' + activityToText(entry.activity);
-                }
-              }
-            }
-          }
-        }
-      });
-    }
-
-    function drawCalories() {
-      if (!refCalories.current || !entries.length) return;
-      
-      const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
-      const dates = sortedEntries.map(e => e.date.slice(5).replace('-', '.'));
-      const centers = sortedEntries.map(e => (e.calMin + e.calMax) / 2);
-      const errUp = sortedEntries.map(e => e.calMax - (e.calMin + e.calMax) / 2);
-      const errDn = sortedEntries.map(e => (e.calMin + e.calMax) / 2 - e.calMin);
-      const colors = sortedEntries.map(e => e.vege >= 50 ? '#22c55e' : e.vege >= 30 ? '#f59e0b' : '#ef4444');
-      
-      // Вычисляем нормы калорий в зависимости от цели
-      let targetCalories = calorieNorm;
-      let goalText = '';
-      let shapeColor = '';
-      
-      if (calorieGoal === 'lose') {
-        targetCalories = Math.round(calorieNorm * 0.8); // -20% для похудения
-        goalText = 'Снижение веса';
-        shapeColor = 'rgba(59, 130, 246, 0.2)'; // синий
-      } else if (calorieGoal === 'gain') {
-        targetCalories = Math.round(calorieNorm * 1.2); // +20% для набора
-        goalText = 'Набор массы';
-        shapeColor = 'rgba(245, 158, 11, 0.2)'; // желтый
-      } else {
-        goalText = 'Поддержание веса';
-        shapeColor = 'rgba(34, 197, 94, 0.2)'; // зеленый
-      }
-      
-      const normMin = targetCalories * 0.9; // ±10% от целевого значения
-      const normMax = targetCalories * 1.1;
-      
-      const shape = [{
-        type: 'rect', xref: 'paper', yref: 'y',
-        x0: 0, x1: 1, y0: normMin, y1: normMax,
-        fillcolor: shapeColor, line: { width: 0 }
-      }];
-
-      const trace = {
-        x: dates, y: centers, mode: 'markers',
-        marker: { color: colors, size: 12 },
-        error_y: { type: 'data', array: errUp, arrayminus: errDn, thickness: 2, width: 6 },
-        customdata: sortedEntries.map(e => [e.vege, e.coffee, e.alco]),
-        hovertemplate:
-          '<b>%{x}</b><br>' +
-          'Калории: %{y-error_y.arrayminus:.0f}–%{y+error_y.array:.0f} ккал<br>' +
-          'Овощи: %{customdata[0]}%<br>' +
-          '☕ %{customdata[1]}  🍺 %{customdata[2]}<extra></extra>'
       };
 
-      const layout = {
-        title: { 
-          text: '🍎 Питание и калории<br><sub style="color: #666; font-size: 12px;">Цель: ' + goalText + ' (' + targetCalories + ' ккал/день)</sub>'
-        },
-        shapes: shape,
-        xaxis: { title: 'День' },
-        yaxis: { title: 'ккал' },
-        margin: { t: 60, b: 60, l: 60, r: 20 },
-        showlegend: false,
-        annotations: [{
-          x: 0.02,
-          y: 0.98,
-          xref: 'paper',
-          yref: 'paper',
-          text: '🎯 Целевая зона: ' + normMin.toFixed(0) + '-' + normMax.toFixed(0) + ' ккал',
-          showarrow: false,
-          font: { size: 11, color: '#666' },
-          bgcolor: 'rgba(255,255,255,0.8)',
-          bordercolor: '#ddd',
-          borderwidth: 1
-        }]
+      // API запрос к анализатору
+      const analyzeWithProxy = async (dayText) => {
+        const res = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: dayText })
+        });
+        
+        if (!res.ok) throw new Error('API Error: ' + res.status);
+        return res.json();
       };
 
-      Plotly.react(refCalories.current, [trace], layout, { displayModeBar: false, responsive: true });
-    }
+      // Анализ дня
+      const handleAnalyze = async () => {
+        if (!text.trim()) {
+          alert('Опишите день.');
+          return;
+        }
 
-    function updateWeekly() {
-      const last7 = entries.slice(0, 7);
-      if (last7.length < 1) return;
-      const sum = last7.reduce((a, e) => {
-        a.sleep += e.sleep; a.mood += e.mood; a.health += e.health;
-        a.activity += e.activity; a.vege += e.vege;
-        a.coffee += e.coffee; a.alco += e.alco;
-        return a;
-      }, { sleep: 0, mood: 0, health: 0, activity: 0, vege: 0, coffee: 0, alco: 0 });
-      const n = last7.length;
-      
-      // Вычисляем средние значения
-      const avgSleep = (sum.sleep / n);
-      const avgMood = (sum.mood / n);
-      const avgHealth = (sum.health / n);
-      const avgActivity = (sum.activity / n);
-      const avgVege = Math.round(sum.vege / n);
-      const avgCoffee = (sum.coffee / n);
-      const avgAlco = (sum.alco / n);
-      
-      // Сохраняем для дашборда
-      setWeeklySummary({
-        days: n,
-        sleep: avgSleep,
-        mood: avgMood,
-        health: avgHealth,
-        activity: avgActivity,
-        vege: avgVege,
-        coffee: avgCoffee,
-        alco: avgAlco
-      });
-      
-      let advice = '';
-      if (avgSleep < -0.5) advice += 'Стоит улучшить качество сна. ';
-      if (avgMood < 0) advice += 'Попробуйте больше активностей для настроения. ';
-      if (avgActivity < 1.5) advice += 'Добавьте физической активности. ';
-      if (avgVege < 40) advice += 'Включите больше овощей в рацион. ';
-      if (avgCoffee > 3) advice += 'Возможно, стоит ограничить кофе. ';
-      if (!advice) advice = 'Отличные показатели! Продолжайте в том же духе! 🎉';
-      
-      setWeeklyAdvice(advice);
-    }
-
-    // Функция для определения цвета метрики
-    function getMetricColor(value, type) {
-      if (type === 'sleep' || type === 'mood' || type === 'health') {
-        if (value >= 1) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
-        if (value >= 0) return 'text-amber-600 bg-amber-50 border-amber-200';
-        return 'text-rose-600 bg-rose-50 border-rose-200';
-      }
-      if (type === 'activity') {
-        if (value >= 2.5) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
-        if (value >= 1.5) return 'text-amber-600 bg-amber-50 border-amber-200';
-        return 'text-rose-600 bg-rose-50 border-rose-200';
-      }
-      if (type === 'vege') {
-        if (value >= 50) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
-        if (value >= 30) return 'text-amber-600 bg-amber-50 border-amber-200';
-        return 'text-rose-600 bg-rose-50 border-rose-200';
-      }
-      if (type === 'coffee') {
-        if (value <= 2) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
-        if (value <= 3) return 'text-amber-600 bg-amber-50 border-amber-200';
-        return 'text-rose-600 bg-rose-50 border-rose-200';
-      }
-      return 'text-slate-600 bg-slate-50 border-slate-200';
-    }
-
-    // Функция для получения текстового описания
-    function getMetricText(value, type) {
-      if (type === 'sleep') return sleepToText(Math.round(value));
-      if (type === 'mood') return moodToText(Math.round(value));
-      if (type === 'health') return healthToText(Math.round(value));
-      if (type === 'activity') return activityToText(Math.round(value));
-      return value.toString();
-    }
-
-    return (
-      <div className="max-w-4xl mx-auto space-y-6">
-        <header className="bg-white card">
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-slate-800">🧠 AI Health Tracker</h1>
-            <p className="text-slate-600 mt-1">
-              {user.name}, {user.height} см, {user.weight} кг — норма {calorieNorm} ккал/день
-            </p>
-            <p className="text-sm text-blue-600 mt-2">
-              📊 Записей в системе: {entries.length}
-            </p>
-          </div>
-        </header>
-
-        <section className="bg-white card overflow-hidden">
-          <button
-            onClick={() => setShowDataPanel(!showDataPanel)}
-            className="w-full px-6 py-4 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-slate-100 text-left hover:from-slate-100 hover:to-blue-100 transition-colors"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-slate-700">🎲 Управление данными</h3>
-              <span className={`text-slate-500 transition-transform ${showDataPanel ? 'rotate-180' : ''}`}>
-                ▼
-              </span>
-            </div>
-          </button>
+        if (!selectedDate) {
+          alert('Выберите дату для записи.');
+          return;
+        }
+        
+        setLoading(true);
+        try {
+          const metrics = await analyzeWithProxy(text);
           
-          {showDataPanel && (
-            <div className="p-6 border-t border-slate-100">
-              <div className="flex flex-wrap gap-3">
-                {showTestDataButton && (
-                  <button
-                    onClick={loadTestData}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                  >
-                    📊 Загрузить тестовые данные (14 дней)
-                  </button>
-                )}
-                <button
-                  onClick={addRandomEntry}
-                  className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
-                >
-                  🎯 Добавить случайную запись за сегодня
-                </button>
-                <button
-                  onClick={clearAllData}
-                  className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors"
-                >
-                  🗑️ Очистить все данные
-                </button>
-              </div>
-              <p className="text-sm text-slate-500 mt-3">
-                💡 Тестовые данные помогают проверить графики и аналитику без ручного ввода
+          if (isEditing) {
+            setEntries(prev => 
+              prev.map(entry => 
+                entry.date === selectedDate 
+                  ? { ...entry, ...metrics, original: text }
+                  : entry
+              ).sort((a, b) => new Date(b.date) - new Date(a.date))
+            );
+          } else {
+            setEntries(prev => {
+              const filtered = prev.filter(e => e.date !== selectedDate);
+              return [{ date: selectedDate, ...metrics }, ...filtered]
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+            });
+          }
+          
+          handleCancelEdit();
+          
+        } catch(err) {
+          console.error(err);
+          alert('Ошибка анализа: ' + err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // Обновление еженедельной сводки
+      const updateWeekly = () => {
+        const last7 = entries.slice(0, 7);
+        if (last7.length < 1) return;
+        
+        const sum = last7.reduce((a, e) => {
+          a.sleep += e.sleep; a.mood += e.mood; a.health += e.health;
+          a.activity += e.activity; a.vege += e.vege;
+          a.coffee += e.coffee; a.alco += e.alco;
+          return a;
+        }, { sleep: 0, mood: 0, health: 0, activity: 0, vege: 0, coffee: 0, alco: 0 });
+        
+        const n = last7.length;
+        
+        setWeeklySummary({
+          days: n,
+          sleep: sum.sleep / n,
+          mood: sum.mood / n,
+          health: sum.health / n,
+          activity: sum.activity / n,
+          vege: Math.round(sum.vege / n),
+          coffee: sum.coffee / n,
+          alco: sum.alco / n
+        });
+        
+        let advice = '';
+        if (sum.sleep / n < -0.5) advice += 'Стоит улучшить качество сна. ';
+        if (sum.mood / n < 0) advice += 'Попробуйте больше активностей для настроения. ';
+        if (sum.activity / n < 1.5) advice += 'Добавьте физической активности. ';
+        if (sum.vege / n < 40) advice += 'Включите больше овощей в рацион. ';
+        if (sum.coffee / n > 3) advice += 'Возможно, стоит ограничить кофе. ';
+        if (!advice) advice = 'Отличные показатели! Продолжайте в том же духе! 🎉';
+        
+        setWeeklyAdvice(advice);
+      };
+
+      // Определение цвета метрики
+      const getMetricColor = (value, type) => {
+        if (type === 'sleep' || type === 'mood' || type === 'health') {
+          if (value >= 1) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+          if (value >= 0) return 'text-amber-600 bg-amber-50 border-amber-200';
+          return 'text-rose-600 bg-rose-50 border-rose-200';
+        }
+        if (type === 'activity') {
+          if (value >= 2.5) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+          if (value >= 1.5) return 'text-amber-600 bg-amber-50 border-amber-200';
+          return 'text-rose-600 bg-rose-50 border-rose-200';
+        }
+        if (type === 'vege') {
+          if (value >= 50) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+          if (value >= 30) return 'text-amber-600 bg-amber-50 border-amber-200';
+          return 'text-rose-600 bg-rose-50 border-rose-200';
+        }
+        if (type === 'coffee') {
+          if (value <= 2) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+          if (value <= 3) return 'text-amber-600 bg-amber-50 border-amber-200';
+          return 'text-rose-600 bg-rose-50 border-rose-200';
+        }
+        return 'text-slate-600 bg-slate-50 border-slate-200';
+      };
+
+      // Текстовое представление метрики
+      const getMetricText = (value, type) => {
+        if (type === 'sleep') return window.sleepToText(Math.round(value));
+        if (type === 'mood') return window.moodToText(Math.round(value));
+        if (type === 'health') return window.healthToText(Math.round(value));
+        if (type === 'activity') return window.activityToText(Math.round(value));
+        return value.toString();
+      };
+
+      return (
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* Заголовок */}
+          <header className="bg-white card">
+            <div className="p-6">
+              <h1 className="text-2xl font-bold text-slate-800">🧠 AI Health Tracker</h1>
+              <p className="text-slate-600 mt-1">
+                {user.name}, {user.height} см, {user.weight} кг — норма {calorieNorm} ккал/день
+              </p>
+              <p className="text-sm text-blue-600 mt-2">
+                📊 Записей в системе: {entries.length}
               </p>
             </div>
-          )}
-        </section>
+          </header>
 
-        {weeklySummary && typeof weeklySummary === 'object' && (
+          {/* Панель управления данными */}
           <section className="bg-white card overflow-hidden">
-            <div className="card-header bg-gradient-to-r from-blue-500 to-indigo-500 px-6 py-4">
-              <h3 className="text-xl font-bold text-white flex items-center">
-                📊 Сводка за {weeklySummary.days} дней
-                <span className="ml-auto text-blue-100 text-sm">
-                  {new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
+            <button
+              onClick={() => setShowDataPanel(!showDataPanel)}
+              className="w-full px-6 py-4 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-slate-100 text-left hover:from-slate-100 hover:to-blue-100 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-slate-700">🎲 Управление данными</h3>
+                <span className={`text-slate-500 transition-transform ${showDataPanel ? 'rotate-180' : ''}`}>
+                  ▼
                 </span>
-              </h3>
+              </div>
+            </button>
+            
+            {showDataPanel && (
+              <div className="p-6 border-t border-slate-100">
+                <div className="flex flex-wrap gap-3">
+                  {showTestDataButton && (
+                    <button
+                      onClick={loadTestData}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                      📊 Загрузить тестовые данные (14 дней)
+                    </button>
+                  )}
+                  <button
+                    onClick={addRandomEntry}
+                    className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                  >
+                    🎯 Добавить случайную запись за сегодня
+                  </button>
+                  <button
+                    onClick={clearAllData}
+                    className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors"
+                  >
+                    🗑️ Очистить все данные
+                  </button>
+                </div>
+                <p className="text-sm text-slate-500 mt-3">
+                  💡 Тестовые данные помогают проверить графики и аналитику без ручного ввода
+                </p>
+              </div>
+            )}
+          </section>
+
+          {/* Сводка */}
+          {weeklySummary && (
+            <section className="bg-white card overflow-hidden">
+              <div className="card-header bg-gradient-to-r from-blue-500 to-indigo-500 px-6 py-4">
+                <h3 className="text-xl font-bold text-white flex items-center">
+                  📊 Сводка за {weeklySummary.days} дней
+                  <span className="ml-auto text-blue-100 text-sm">
+                    {new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
+                  </span>
+                </h3>
+              </div>
+              
+              <div className="p-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.sleep, 'sleep')}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-2xl">😴</span>
+                      <span className="text-xs font-medium opacity-75">СОН</span>
+                    </div>
+                    <div className="font-bold text-lg">{getMetricText(weeklySummary.sleep, 'sleep')}</div>
+                    <div className="text-xs opacity-75 mt-1">{weeklySummary.sleep.toFixed(1)} балла</div>
+                  </div>
+
+                  <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.mood, 'mood')}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-2xl">😊</span>
+                      <span className="text-xs font-medium opacity-75">НАСТРОЕНИЕ</span>
+                    </div>
+                    <div className="font-bold text-lg">{getMetricText(weeklySummary.mood, 'mood')}</div>
+                    <div className="text-xs opacity-75 mt-1">{weeklySummary.mood.toFixed(1)} балла</div>
+                  </div>
+
+                  <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.health, 'health')}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-2xl">❤️</span>
+                      <span className="text-xs font-medium opacity-75">ЗДОРОВЬЕ</span>
+                    </div>
+                    <div className="font-bold text-lg">{getMetricText(weeklySummary.health, 'health')}</div>
+                    <div className="text-xs opacity-75 mt-1">{weeklySummary.health.toFixed(1)} балла</div>
+                  </div>
+
+                  <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.activity, 'activity')}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-2xl">🏃</span>
+                      <span className="text-xs font-medium opacity-75">АКТИВНОСТЬ</span>
+                    </div>
+                    <div className="font-bold text-lg">{getMetricText(weeklySummary.activity, 'activity')}</div>
+                    <div className="text-xs opacity-75 mt-1">{weeklySummary.activity.toFixed(1)} балла</div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
+                  <div className="flex items-start space-x-3">
+                    <span className="text-2xl">💡</span>
+                    <div>
+                      <h4 className="font-semibold text-blue-800 mb-1">Персональные рекомендации</h4>
+                      <p className="text-blue-700 text-sm leading-relaxed">{weeklyAdvice}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Форма добавления записи */}
+          <section className="bg-white card overflow-hidden">
+            <div className="card-header bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-4">
+              <h3 className="text-xl font-bold text-white">✍️ Добавить новую запись</h3>
             </div>
             
             <div className="p-6">
-              {/* Основные метрики */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                {/* Сон */}
-                <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.sleep, 'sleep')}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-2xl">😴</span>
-                    <span className="text-xs font-medium opacity-75">СОН</span>
-                  </div>
-                  <div className="font-bold text-lg">{getMetricText(weeklySummary.sleep, 'sleep')}</div>
-                  <div className="text-xs opacity-75 mt-1">{weeklySummary.sleep.toFixed(1)} балла</div>
-                </div>
-
-                {/* Настроение */}
-                <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.mood, 'mood')}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-2xl">😊</span>
-                    <span className="text-xs font-medium opacity-75">НАСТРОЕНИЕ</span>
-                  </div>
-                  <div className="font-bold text-lg">{getMetricText(weeklySummary.mood, 'mood')}</div>
-                  <div className="text-xs opacity-75 mt-1">{weeklySummary.mood.toFixed(1)} балла</div>
-                </div>
-
-                {/* Здоровье */}
-                <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.health, 'health')}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-2xl">❤️</span>
-                    <span className="text-xs font-medium opacity-75">ЗДОРОВЬЕ</span>
-                  </div>
-                  <div className="font-bold text-lg">{getMetricText(weeklySummary.health, 'health')}</div>
-                  <div className="text-xs opacity-75 mt-1">{weeklySummary.health.toFixed(1)} балла</div>
-                </div>
-
-                {/* Активность */}
-                <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.activity, 'activity')}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-2xl">🏃</span>
-                    <span className="text-xs font-medium opacity-75">АКТИВНОСТЬ</span>
-                  </div>
-                  <div className="font-bold text-lg">{getMetricText(weeklySummary.activity, 'activity')}</div>
-                  <div className="text-xs opacity-75 mt-1">{weeklySummary.activity.toFixed(1)} балла</div>
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-slate-700 mb-3">Выберите день для записи:</h4>
+                <div className="grid grid-cols-7 gap-2">
+                  {getLast7Days().map((day) => (
+                    <button
+                      key={day.date}
+                      onClick={() => handleDateSelect(day.date)}
+                      disabled={day.isFuture}
+                      className={`p-3 rounded-xl border transition-all text-sm font-medium ${
+                        selectedDate === day.date
+                          ? 'border-blue-300 bg-blue-50 text-blue-700'
+                          : day.hasEntry
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300'
+                          : day.isFuture
+                          ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="text-xs">{day.dayName}</div>
+                      <div className="font-bold">{day.dayNum}</div>
+                      <div className="text-xs mt-1">
+                        {selectedDate === day.date ? (
+                          <span className="text-blue-600">✏️ Выбран</span>
+                        ) : day.hasEntry ? (
+                          <span className="text-emerald-600">✅ Есть</span>
+                        ) : day.isFuture ? (
+                          <span className="text-slate-400">⏳ Ждем</span>
+                        ) : (
+                          <span className="text-orange-600">⭕ Пусто</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Дополнительные метрики */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                {/* Овощи */}
-                <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.vege, 'vege')}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xl">🥗</span>
-                    <span className="text-xs font-medium opacity-75">ОВОЩИ В РАЦИОНЕ</span>
-                  </div>
-                  <div className="font-bold text-2xl">{weeklySummary.vege}%</div>
-                  <div className="text-xs opacity-75 mt-1">
-                    {weeklySummary.vege >= 50 ? 'Отлично!' : weeklySummary.vege >= 30 ? 'Неплохо' : 'Маловато'}
+              <div className="grid lg:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    {isEditing ? 'Редактировать запись:' : 'Описание дня:'}
+                  </label>
+                  <textarea
+                    className="w-full border border-slate-200 rounded-xl p-3 text-sm resize-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 transition-colors"
+                    rows={10}
+                    placeholder={
+                      selectedDate 
+                        ? `Опишите день ${new Date(selectedDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}...`
+                        : "Сначала выберите день выше..."
+                    }
+                    value={text}
+                    onChange={e => setText(e.target.value)}
+                    disabled={loading || !selectedDate}
+                  />
+                  
+                  <div className="flex gap-3 mt-4">
+                    <button
+                      onClick={handleAnalyze}
+                      disabled={loading || !text.trim() || !selectedDate}
+                      className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-xl disabled:bg-slate-300 font-medium transition-colors hover:bg-blue-600"
+                    >
+                      {loading ? 'Анализирую…' : isEditing ? '🤖 Обновить запись' : '🤖 Создать запись'}
+                    </button>
+                    
+                    {isEditing && (
+                      <button
+                        onClick={handleCancelEdit}
+                        className="px-4 py-2 bg-slate-400 text-white rounded-xl font-medium transition-colors hover:bg-slate-500"
+                      >
+                        Отмена
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* Кофе */}
-                <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.coffee, 'coffee')}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xl">☕</span>
-                    <span className="text-xs font-medium opacity-75">КОФЕ В ДЕНЬ</span>
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <h5 className="font-medium text-slate-800 mb-3">💡 Что описать в записи:</h5>
+                  <div className="space-y-3 text-sm text-slate-600">
+                    <div>
+                      <strong className="text-slate-800">😴 Сон:</strong>
+                      <p>Как спали? Сколько часов? Качество сна?</p>
+                    </div>
+                    <div>
+                      <strong className="text-slate-800">🍽️ Питание:</strong>
+                      <p>Завтрак, обед, ужин. Перекусы, овощи, фрукты.</p>
+                    </div>
+                    <div>
+                      <strong className="text-slate-800">☕ Напитки:</strong>
+                      <p>Сколько кофе? Чай? Алкоголь? Вода?</p>
+                    </div>
+                    <div>
+                      <strong className="text-slate-800">😊 Настроение:</strong>
+                      <p>Как себя чувствовали эмоционально?</p>
+                    </div>
+                    <div>
+                      <strong className="text-slate-800">🏃 Активность:</strong>
+                      <p>Спорт, прогулки, физический труд, зал?</p>
+                    </div>
+                    <div>
+                      <strong className="text-slate-800">❤️ Самочувствие:</strong>
+                      <p>Здоровье, энергия, болезни, усталость?</p>
+                    </div>
                   </div>
-                  <div className="font-bold text-2xl">{weeklySummary.coffee.toFixed(1)}</div>
-                  <div className="text-xs opacity-75 mt-1">
-                    {weeklySummary.coffee <= 2 ? 'Норма' : weeklySummary.coffee <= 3 ? 'Много' : 'Слишком много!'}
-                  </div>
-                </div>
-
-                {/* Алкоголь */}
-                <div className="p-4 rounded-xl border bg-slate-50 border-slate-200 text-slate-600 transition-all hover:shadow-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xl">🍺</span>
-                    <span className="text-xs font-medium opacity-75">АЛКОГОЛЬ</span>
-                  </div>
-                  <div className="font-bold text-2xl">{weeklySummary.alco.toFixed(1)}</div>
-                  <div className="text-xs opacity-75 mt-1">порций в день</div>
-                </div>
-              </div>
-
-              {/* Рекомендации */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
-                <div className="flex items-start space-x-3">
-                  <span className="text-2xl">💡</span>
-                  <div>
-                    <h4 className="font-semibold text-blue-800 mb-1">Персональные рекомендации</h4>
-                    <p className="text-blue-700 text-sm leading-relaxed">{weeklyAdvice}</p>
+                  
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <p className="text-xs text-blue-700">
+                      <strong>Совет:</strong> Чем подробнее опишете день, тем точнее будет анализ ИИ!
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
           </section>
-        )}
 
-        <section className="bg-white card overflow-hidden">
-          <div className="card-header bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-4">
-            <h3 className="text-xl font-bold text-white">✍️ Добавить новую запись</h3>
-          </div>
-          
-          <div className="p-6">
-            {/* Календарь последних 7 дней */}
-            <div className="mb-6">
-              <h4 className="text-sm font-medium text-slate-700 mb-3">Выберите день для записи:</h4>
-              <div className="grid grid-cols-7 gap-2">
-                {getLast7Days().map((day) => (
-                  <button
-                    key={day.date}
-                    onClick={() => handleDateSelect(day.date)}
-                    disabled={day.isFuture}
-                    className={`p-3 rounded-xl border transition-all text-sm font-medium ${
-                      selectedDate === day.date
-                        ? 'border-blue-300 bg-blue-50 text-blue-700'
-                        : day.hasEntry
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300'
-                        : day.isFuture
-                        ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="text-xs">{day.dayName}</div>
-                    <div className="font-bold">{day.dayNum}</div>
-                    <div className="text-xs mt-1">
-                      {selectedDate === day.date ? (
-                        <span className="text-blue-600">✏️ Выбран</span>
-                      ) : day.hasEntry ? (
-                        <span className="text-emerald-600">✅ Есть</span>
-                      ) : day.isFuture ? (
-                        <span className="text-slate-400">⏳ Ждем</span>
-                      ) : (
-                        <span className="text-orange-600">⭕ Пусто</span>
-                      )}
+          {/* История записей */}
+          <section className="bg-white card">
+            <div className="p-6">
+              <h3 className="font-semibold mb-4 text-slate-800">📚 История записей</h3>
+              {entries.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-slate-500 italic text-lg">📝 Пока нет записей</p>
+                  <p className="text-slate-400 mt-2">Загрузите тестовые данные или добавьте первую запись!</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {entries.slice(0, 10).map((e, i) => (
+                    <div key={i} className="border border-slate-200 p-4 rounded-xl hover:shadow-sm transition-all bg-slate-50">
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="font-medium text-lg text-slate-800">
+                          {new Date(e.date).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        </span>
+                        <div className="flex space-x-1 text-xl">
+                          {Array(Math.min(e.coffee || 0, 5)).fill().map((_, j) => <span key={j}>☕</span>)}
+                          {Array(Math.min(e.alco || 0, 5)).fill().map((_, j) => <span key={j}>🍺</span>)}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
+                        <div className="flex items-center">
+                          <span className="mr-2">😴</span>
+                          <span className="text-slate-700">Сон: {window.sleepToText(e.sleep)}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="mr-2">😊</span>
+                          <span className="text-slate-700">Настроение: {window.moodToText(e.mood)}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="mr-2">❤️</span>
+                          <span className="text-slate-700">Здоровье: {window.healthToText(e.health)}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="mr-2">{['💤','🚶','🏃','🏋️','🔥'][e.activity] || '❓'}</span>
+                          <span className="text-slate-700">Активность: {window.activityToText(e.activity)}</span>
+                        </div>
+                      </div>
+                      <div className="mb-3">
+                        <span className="text-sm text-slate-500">🍽️ Калории: </span>
+                        <span className="font-medium text-slate-700">{e.calMin}–{e.calMax} ккал</span>
+                        <span className="text-sm text-slate-500 ml-4">🥗 Овощи: </span>
+                        <span className={`font-medium ${e.vege >= 50 ? 'text-emerald-600' : e.vege >= 30 ? 'text-amber-600' : 'text-rose-600'}`}>
+                          {e.vege}%
+                        </span>
+                      </div>
+                      <p className="italic text-slate-600 bg-white p-3 rounded-lg border border-slate-100">"{e.summary}"</p>
                     </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Основная форма */}
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* Левая колонка - ввод текста */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  {isEditing ? 'Редактировать запись:' : 'Описание дня:'}
-                </label>
-                <textarea
-                  className="w-full border border-slate-200 rounded-xl p-3 text-sm resize-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 transition-colors"
-                  rows={10}
-                  placeholder={
-                    selectedDate 
-                      ? `Опишите день ${new Date(selectedDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}...`
-                      : "Сначала выберите день выше..."
-                  }
-                  value={text}
-                  onChange={e => setText(e.target.value)}
-                  disabled={loading || !selectedDate}
-                />
-                
-                <div className="flex gap-3 mt-4">
-                  <button
-                    onClick={handleAnalyze}
-                    disabled={loading || !text.trim() || !selectedDate}
-                    className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-xl disabled:bg-slate-300 font-medium transition-colors hover:bg-blue-600"
-                  >
-                    {loading ? 'Анализирую…' : isEditing ? '🤖 Обновить запись' : '🤖 Создать запись'}
-                  </button>
-                  
-                  {isEditing && (
-                    <button
-                      onClick={handleCancelEdit}
-                      className="px-4 py-2 bg-slate-400 text-white rounded-xl font-medium transition-colors hover:bg-slate-500"
-                    >
-                      Отмена
-                    </button>
+                  ))}
+                  {entries.length > 10 && (
+                    <p className="text-center text-slate-500 italic mt-6">
+                      И еще {entries.length - 10} записей...
+                    </p>
                   )}
                 </div>
-              </div>
-
-              {/* Правая колонка - подсказки */}
-              <div className="bg-slate-50 rounded-xl p-4">
-                <h5 className="font-medium text-slate-800 mb-3">💡 Что описать в записи:</h5>
-                <div className="space-y-3 text-sm text-slate-600">
-                  <div>
-                    <strong className="text-slate-800">😴 Сон:</strong>
-                    <p>Как спали? Сколько часов? Качество сна?</p>
-                  </div>
-                  
-                  <div>
-                    <strong className="text-slate-800">🍽️ Питание:</strong>
-                    <p>Завтрак, обед, ужин. Перекусы, овощи, фрукты.</p>
-                  </div>
-                  
-                  <div>
-                    <strong className="text-slate-800">☕ Напитки:</strong>
-                    <p>Сколько кофе? Чай? Алкоголь? Вода?</p>
-                  </div>
-                  
-                  <div>
-                    <strong className="text-slate-800">😊 Настроение:</strong>
-                    <p>Как себя чувствовали эмоционально?</p>
-                  </div>
-                  
-                  <div>
-                    <strong className="text-slate-800">🏃 Активность:</strong>
-                    <p>Спорт, прогулки, физический труд, зал?</p>
-                  </div>
-                  
-                  <div>
-                    <strong className="text-slate-800">❤️ Самочувствие:</strong>
-                    <p>Здоровье, энергия, болезни, усталость?</p>
-                  </div>
-                </div>
-                
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                  <p className="text-xs text-blue-700">
-                    <strong>Совет:</strong> Чем подробнее опишете день, тем точнее будет анализ ИИ!
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
-          </div>
-        </section>
-                      ) : day.isFuture ? (
-                        <span className="text-gray-400">⏳ Ждем</span>
-                      ) : (
-                        <span className="text-orange-600">⭕ Пусто</span>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
+          </section>
+        </div>
+      );
+    }
 
-            {/* Основная форма */}
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* Левая колонка - ввод текста */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {isEditing ? 'Редактировать запись:' : 'Описание дня:'}
-                </label>
-                <textarea
-                  className="w-full border border-gray-300 rounded-lg p-3 text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={10}
-                  placeholder={
-                    selectedDate 
-                      ? `Опишите день ${new Date(selectedDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}...`
-                      : "Сначала выберите день выше..."
-                  }
-                  value={text}
-                  onChange={e => setText(e.target.value)}
-                  disabled={loading || !selectedDate}
-                />
-                
-                <div className="flex gap-2 mt-4">
-                  <button
-                    onClick={handleAnalyze}
-                    disabled={loading || !text.trim() || !selectedDate}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:bg-gray-400 font-medium transition-colors hover:bg-blue-700"
-                  >
-                    {loading ? 'Анализирую…' : isEditing ? '🤖 Обновить запись' : '🤖 Создать запись'}
-                  </button>
-                  
-                  {isEditing && (
-                    <button
-                      onClick={handleCancelEdit}
-                      className="px-4 py-2 bg-gray-500 text-white rounded-lg font-medium transition-colors hover:bg-gray-600"
-                    >
-                      Отмена
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Правая колонка - подсказки */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h5 className="font-medium text-gray-800 mb-3">💡 Что описать в записи:</h5>
-                <div className="space-y-3 text-sm text-gray-600">
-                  <div>
-                    <strong className="text-gray-800">😴 Сон:</strong>
-                    <p>Как спали? Сколько часов? Качество сна?</p>
-                  </div>
-                  
-                  <div>
-                    <strong className="text-gray-800">🍽️ Питание:</strong>
-                    <p>Завтрак, обед, ужин. Перекусы, овощи, фрукты.</p>
-                  </div>
-                  
-                  <div>
-                    <strong className="text-gray-800">☕ Напитки:</strong>
-                    <p>Сколько кофе? Чай? Алкоголь? Вода?</p>
-                  </div>
-                  
-                  <div>
-                    <strong className="text-gray-800">😊 Настроение:</strong>
-                    <p>Как себя чувствовали эмоционально?</p>
-                  </div>
-                  
-                  <div>
-                    <strong className="text-gray-800">🏃 Активность:</strong>
-                    <p>Спорт, прогулки, физический труд, зал?</p>
-                  </div>
-                  
-                  <div>
-                    <strong className="text-gray-800">❤️ Самочувствие:</strong>
-                    <p>Здоровье, энергия, болезни, усталость?</p>
-                  </div>
-                </div>
-                
-                <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
-                  <p className="text-xs text-blue-700">
-                    <strong>Совет:</strong> Чем подробнее опишете день, тем точнее будет анализ ИИ!
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {entries.length > 0 && (
-          <>
-            <div className="grid lg:grid-cols-2 gap-6">
-              <div className="bg-white card">
-                <div className="p-6">
-                  <h3 className="font-semibold mb-4 text-slate-800">📈 Самочувствие по дням</h3>
-                  <div className="chart-container"><canvas ref={refHealth}></canvas></div>
-                </div>
-              </div>
-              <div className="bg-white card">
-                <div className="p-6">
-                  <h3 className="font-semibold mb-4 text-slate-800">🏃 Уровень активности</h3>
-                  <div className="chart-container"><canvas ref={refActivity}></canvas></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white card">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-semibold text-slate-800">🍎 Питание и калории</h3>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setCalorieGoal('maintain')}
-                      className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                        calorieGoal === 'maintain' 
-                          ? 'bg-emerald-400 text-white' 
-                          : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
-                      }`}
-                    >
-                      🟢 Поддержание
-                    </button>
-                    <button
-                      onClick={() => setCalorieGoal('lose')}
-                      className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                        calorieGoal === 'lose' 
-                          ? 'bg-blue-400 text-white' 
-                          : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
-                      }`}
-                    >
-                      🔵 Снижение
-                    </button>
-                    <button
-                      onClick={() => setCalorieGoal('gain')}
-                      className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                        calorieGoal === 'gain' 
-                          ? 'bg-amber-400 text-white' 
-                          : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
-                      }`}
-                    >
-                      🟡 Набор массы
-                    </button>
-                  </div>
-                </div>
-                <div ref={refCalories} className="chart-container"></div>
-                <div className="mt-4 text-sm text-slate-500">
-                  <div className="flex flex-wrap gap-4">
-                    <span>🟢 Зеленый точки: &gt;50% овощей</span>
-                    <span>🟡 Желтые точки: 30-50% овощей</span>
-                    <span>🔴 Красные точки: &lt;30% овощей</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        <section className="bg-white card">
-          <div className="p-6">
-            <h3 className="font-semibold mb-4 text-slate-800">📚 История записей</h3>
-            {entries.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-slate-500 italic text-lg">📝 Пока нет записей</p>
-                <p className="text-slate-400 mt-2">Загрузите тестовые данные или добавьте первую запись!</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {entries.slice(0, 10).map((e, i) => (
-                  <div key={i} className="border border-slate-200 p-4 rounded-xl hover:shadow-sm transition-all bg-slate-50">
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="font-medium text-lg text-slate-800">
-                        {new Date(e.date).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
-                      </span>
-                      <div className="flex space-x-1 text-xl">
-                        {Array(Math.min(e.coffee || 0, 5)).fill().map((_, j) => <span key={j}>☕</span>)}
-                        {Array(Math.min(e.alco || 0, 5)).fill().map((_, j) => <span key={j}>🍺</span>)}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
-                      <div className="flex items-center">
-                        <span className="mr-2">😴</span>
-                        <span className="text-slate-700">Сон: {sleepToText(e.sleep)}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="mr-2">😊</span>
-                        <span className="text-slate-700">Настроение: {moodToText(e.mood)}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="mr-2">❤️</span>
-                        <span className="text-slate-700">Здоровье: {healthToText(e.health)}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="mr-2">{['💤','🚶','🏃','🏋️','🔥'][e.activity] || '❓'}</span>
-                        <span className="text-slate-700">Активность: {activityToText(e.activity)}</span>
-                      </div>
-                    </div>
-                    <div className="mb-3">
-                      <span className="text-sm text-slate-500">🍽️ Калории: </span>
-                      <span className="font-medium text-slate-700">{e.calMin}–{e.calMax} ккал</span>
-                      <span className="text-sm text-slate-500 ml-4">🥗 Овощи: </span>
-                      <span className={`font-medium ${e.vege >= 50 ? 'text-emerald-600' : e.vege >= 30 ? 'text-amber-600' : 'text-rose-600'}`}>
-                        {e.vege}%
-                      </span>
-                    </div>
-                    <p className="italic text-slate-600 bg-white p-3 rounded-lg border border-slate-100">"{e.summary}"</p>
-                  </div>
-                ))}
-                {entries.length > 10 && (
-                  <p className="text-center text-slate-500 italic mt-6">
-                    И еще {entries.length - 10} записей...
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
-    );
-  }
-
-  ReactDOM.render(<HealthTracker />, document.getElementById('root'));
+    ReactDOM.render(<HealthTracker />, document.getElementById('root'));
   </script>
 </body>
 </html>
