@@ -232,6 +232,21 @@
       return res.json();
     }
 
+    const addRandomEntry = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const existing = entries.find(e => e.date === today);
+      
+      if (existing && !confirm('Запись за сегодня уже есть. Заменить?')) {
+        return;
+      }
+      
+      const randomEntry = generateHealthEntry(0);
+      setEntries(prev => {
+        const filtered = prev.filter(e => e.date !== today);
+        return [randomEntry, ...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
+      });
+    };
+
     // Генерируем массив последних 7 дней
     const getLast7Days = () => {
       const days = [];
