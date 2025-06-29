@@ -17,6 +17,8 @@
   <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
   <style>
     .chart-container { position: relative; height: 300px; width: 100%; }
+    .card { border-radius: 12px; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03); }
+    .card-header { border-radius: 12px 12px 0 0; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-4">
@@ -181,6 +183,7 @@
     const [selectedDate, setSelectedDate] = useState('');
     const [editingEntry, setEditingEntry] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
+    const [showDataPanel, setShowDataPanel] = useState(false);
 
     const refHealth = useRef();
     const refActivity = useRef();
@@ -577,26 +580,26 @@
     // Функция для определения цвета метрики
     function getMetricColor(value, type) {
       if (type === 'sleep' || type === 'mood' || type === 'health') {
-        if (value >= 1) return 'text-green-600 bg-green-50 border-green-200';
-        if (value >= 0) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-        return 'text-red-600 bg-red-50 border-red-200';
+        if (value >= 1) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+        if (value >= 0) return 'text-amber-600 bg-amber-50 border-amber-200';
+        return 'text-rose-600 bg-rose-50 border-rose-200';
       }
       if (type === 'activity') {
-        if (value >= 2.5) return 'text-green-600 bg-green-50 border-green-200';
-        if (value >= 1.5) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-        return 'text-red-600 bg-red-50 border-red-200';
+        if (value >= 2.5) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+        if (value >= 1.5) return 'text-amber-600 bg-amber-50 border-amber-200';
+        return 'text-rose-600 bg-rose-50 border-rose-200';
       }
       if (type === 'vege') {
-        if (value >= 50) return 'text-green-600 bg-green-50 border-green-200';
-        if (value >= 30) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-        return 'text-red-600 bg-red-50 border-red-200';
+        if (value >= 50) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+        if (value >= 30) return 'text-amber-600 bg-amber-50 border-amber-200';
+        return 'text-rose-600 bg-rose-50 border-rose-200';
       }
       if (type === 'coffee') {
-        if (value <= 2) return 'text-green-600 bg-green-50 border-green-200';
-        if (value <= 3) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-        return 'text-red-600 bg-red-50 border-red-200';
+        if (value <= 2) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+        if (value <= 3) return 'text-amber-600 bg-amber-50 border-amber-200';
+        return 'text-rose-600 bg-rose-50 border-rose-200';
       }
-      return 'text-gray-600 bg-gray-50 border-gray-200';
+      return 'text-slate-600 bg-slate-50 border-slate-200';
     }
 
     // Функция для получения текстового описания
@@ -610,45 +613,65 @@
 
     return (
       <div className="max-w-4xl mx-auto space-y-6">
-        <header className="bg-white p-4 rounded shadow">
-          <h1 className="text-2xl font-bold">🧠 AI Health Tracker</h1>
-          <p className="text-gray-600">
-            {user.name}, {user.height} см, {user.weight} кг — норма {calorieNorm} ккал/день
-          </p>
-          <p className="text-sm text-blue-600 mt-1">
-            📊 Записей в системе: {entries.length}
-          </p>
+        <header className="bg-white card">
+          <div className="p-6">
+            <h1 className="text-2xl font-bold text-slate-800">🧠 AI Health Tracker</h1>
+            <p className="text-slate-600 mt-1">
+              {user.name}, {user.height} см, {user.weight} кг — норма {calorieNorm} ккал/день
+            </p>
+            <p className="text-sm text-blue-600 mt-2">
+              📊 Записей в системе: {entries.length}
+            </p>
+          </div>
         </header>
 
-        <section className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 p-4 rounded-lg">
-          <h3 className="font-semibold mb-3 text-blue-800">🎲 Управление данными</h3>
-          <div className="flex flex-wrap gap-2">
-            {showTestDataButton && (
-              <button
-                onClick={loadTestData}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                📊 Загрузить тестовые данные (14 дней)
-              </button>
-            )}
-            <button
-              onClick={addRandomEntry}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-            >
-              🎯 Добавить случайную запись за сегодня
-            </button>
-            <button
-              onClick={clearAllData}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-            >
-              🗑️ Очистить все данные
-            </button>
-          </div>
+        <section className="bg-white card overflow-hidden">
+          <button
+            onClick={() => setShowDataPanel(!showDataPanel)}
+            className="w-full px-6 py-4 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-slate-100 text-left hover:from-slate-100 hover:to-blue-100 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-slate-700">🎲 Управление данными</h3>
+              <span className={`text-slate-500 transition-transform ${showDataPanel ? 'rotate-180' : ''}`}>
+                ▼
+              </span>
+            </div>
+          </button>
+          
+          {showDataPanel && (
+            <div className="p-6 border-t border-slate-100">
+              <div className="flex flex-wrap gap-3">
+                {showTestDataButton && (
+                  <button
+                    onClick={loadTestData}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    📊 Загрузить тестовые данные (14 дней)
+                  </button>
+                )}
+                <button
+                  onClick={addRandomEntry}
+                  className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                >
+                  🎯 Добавить случайную запись за сегодня
+                </button>
+                <button
+                  onClick={clearAllData}
+                  className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors"
+                >
+                  🗑️ Очистить все данные
+                </button>
+              </div>
+              <p className="text-sm text-slate-500 mt-3">
+                💡 Тестовые данные помогают проверить графики и аналитику без ручного ввода
+              </p>
+            </div>
+          )}
         </section>
 
         {weeklySummary && typeof weeklySummary === 'object' && (
-          <section className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
+          <section className="bg-white card overflow-hidden">
+            <div className="card-header bg-gradient-to-r from-blue-500 to-indigo-500 px-6 py-4">
               <h3 className="text-xl font-bold text-white flex items-center">
                 📊 Сводка за {weeklySummary.days} дней
                 <span className="ml-auto text-blue-100 text-sm">
@@ -661,7 +684,7 @@
               {/* Основные метрики */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 {/* Сон */}
-                <div className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${getMetricColor(weeklySummary.sleep, 'sleep')}`}>
+                <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.sleep, 'sleep')}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-2xl">😴</span>
                     <span className="text-xs font-medium opacity-75">СОН</span>
@@ -671,7 +694,7 @@
                 </div>
 
                 {/* Настроение */}
-                <div className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${getMetricColor(weeklySummary.mood, 'mood')}`}>
+                <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.mood, 'mood')}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-2xl">😊</span>
                     <span className="text-xs font-medium opacity-75">НАСТРОЕНИЕ</span>
@@ -681,7 +704,7 @@
                 </div>
 
                 {/* Здоровье */}
-                <div className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${getMetricColor(weeklySummary.health, 'health')}`}>
+                <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.health, 'health')}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-2xl">❤️</span>
                     <span className="text-xs font-medium opacity-75">ЗДОРОВЬЕ</span>
@@ -691,7 +714,7 @@
                 </div>
 
                 {/* Активность */}
-                <div className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${getMetricColor(weeklySummary.activity, 'activity')}`}>
+                <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.activity, 'activity')}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-2xl">🏃</span>
                     <span className="text-xs font-medium opacity-75">АКТИВНОСТЬ</span>
@@ -704,7 +727,7 @@
               {/* Дополнительные метрики */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 {/* Овощи */}
-                <div className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${getMetricColor(weeklySummary.vege, 'vege')}`}>
+                <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.vege, 'vege')}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xl">🥗</span>
                     <span className="text-xs font-medium opacity-75">ОВОЩИ В РАЦИОНЕ</span>
@@ -716,7 +739,7 @@
                 </div>
 
                 {/* Кофе */}
-                <div className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${getMetricColor(weeklySummary.coffee, 'coffee')}`}>
+                <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.coffee, 'coffee')}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xl">☕</span>
                     <span className="text-xs font-medium opacity-75">КОФЕ В ДЕНЬ</span>
@@ -728,7 +751,7 @@
                 </div>
 
                 {/* Алкоголь */}
-                <div className="p-4 rounded-lg border-2 bg-gray-50 border-gray-200 text-gray-600 transition-all hover:shadow-md">
+                <div className="p-4 rounded-xl border bg-slate-50 border-slate-200 text-slate-600 transition-all hover:shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xl">🍺</span>
                     <span className="text-xs font-medium opacity-75">АЛКОГОЛЬ</span>
@@ -739,12 +762,12 @@
               </div>
 
               {/* Рекомендации */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
                 <div className="flex items-start space-x-3">
                   <span className="text-2xl">💡</span>
                   <div>
-                    <h4 className="font-semibold text-blue-900 mb-1">Персональные рекомендации</h4>
-                    <p className="text-blue-800 text-sm leading-relaxed">{weeklyAdvice}</p>
+                    <h4 className="font-semibold text-blue-800 mb-1">Персональные рекомендации</h4>
+                    <p className="text-blue-700 text-sm leading-relaxed">{weeklyAdvice}</p>
                   </div>
                 </div>
               </div>
@@ -752,29 +775,29 @@
           </section>
         )}
 
-        <section className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-green-600 to-blue-600 px-6 py-4">
+        <section className="bg-white card overflow-hidden">
+          <div className="card-header bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-4">
             <h3 className="text-xl font-bold text-white">✍️ Добавить новую запись</h3>
           </div>
           
           <div className="p-6">
             {/* Календарь последних 7 дней */}
             <div className="mb-6">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Выберите день для записи:</h4>
+              <h4 className="text-sm font-medium text-slate-700 mb-3">Выберите день для записи:</h4>
               <div className="grid grid-cols-7 gap-2">
                 {getLast7Days().map((day) => (
                   <button
                     key={day.date}
                     onClick={() => handleDateSelect(day.date)}
                     disabled={day.isFuture}
-                    className={`p-3 rounded-lg border-2 transition-all text-sm font-medium ${
+                    className={`p-3 rounded-xl border transition-all text-sm font-medium ${
                       selectedDate === day.date
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        ? 'border-blue-300 bg-blue-50 text-blue-700'
                         : day.hasEntry
-                        ? 'border-green-200 bg-green-50 text-green-700 hover:border-green-300'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300'
                         : day.isFuture
-                        ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
                     }`}
                   >
                     <div className="text-xs">{day.dayName}</div>
@@ -783,7 +806,102 @@
                       {selectedDate === day.date ? (
                         <span className="text-blue-600">✏️ Выбран</span>
                       ) : day.hasEntry ? (
-                        <span className="text-green-600">✅ Есть</span>
+                        <span className="text-emerald-600">✅ Есть</span>
+                      ) : day.isFuture ? (
+                        <span className="text-slate-400">⏳ Ждем</span>
+                      ) : (
+                        <span className="text-orange-600">⭕ Пусто</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Основная форма */}
+            <div className="grid lg:grid-cols-2 gap-6">
+              {/* Левая колонка - ввод текста */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  {isEditing ? 'Редактировать запись:' : 'Описание дня:'}
+                </label>
+                <textarea
+                  className="w-full border border-slate-200 rounded-xl p-3 text-sm resize-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 transition-colors"
+                  rows={10}
+                  placeholder={
+                    selectedDate 
+                      ? `Опишите день ${new Date(selectedDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}...`
+                      : "Сначала выберите день выше..."
+                  }
+                  value={text}
+                  onChange={e => setText(e.target.value)}
+                  disabled={loading || !selectedDate}
+                />
+                
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={handleAnalyze}
+                    disabled={loading || !text.trim() || !selectedDate}
+                    className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-xl disabled:bg-slate-300 font-medium transition-colors hover:bg-blue-600"
+                  >
+                    {loading ? 'Анализирую…' : isEditing ? '🤖 Обновить запись' : '🤖 Создать запись'}
+                  </button>
+                  
+                  {isEditing && (
+                    <button
+                      onClick={handleCancelEdit}
+                      className="px-4 py-2 bg-slate-400 text-white rounded-xl font-medium transition-colors hover:bg-slate-500"
+                    >
+                      Отмена
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Правая колонка - подсказки */}
+              <div className="bg-slate-50 rounded-xl p-4">
+                <h5 className="font-medium text-slate-800 mb-3">💡 Что описать в записи:</h5>
+                <div className="space-y-3 text-sm text-slate-600">
+                  <div>
+                    <strong className="text-slate-800">😴 Сон:</strong>
+                    <p>Как спали? Сколько часов? Качество сна?</p>
+                  </div>
+                  
+                  <div>
+                    <strong className="text-slate-800">🍽️ Питание:</strong>
+                    <p>Завтрак, обед, ужин. Перекусы, овощи, фрукты.</p>
+                  </div>
+                  
+                  <div>
+                    <strong className="text-slate-800">☕ Напитки:</strong>
+                    <p>Сколько кофе? Чай? Алкоголь? Вода?</p>
+                  </div>
+                  
+                  <div>
+                    <strong className="text-slate-800">😊 Настроение:</strong>
+                    <p>Как себя чувствовали эмоционально?</p>
+                  </div>
+                  
+                  <div>
+                    <strong className="text-slate-800">🏃 Активность:</strong>
+                    <p>Спорт, прогулки, физический труд, зал?</p>
+                  </div>
+                  
+                  <div>
+                    <strong className="text-slate-800">❤️ Самочувствие:</strong>
+                    <p>Здоровье, энергия, болезни, усталость?</p>
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <p className="text-xs text-blue-700">
+                    <strong>Совет:</strong> Чем подробнее опишете день, тем точнее будет анализ ИИ!
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
                       ) : day.isFuture ? (
                         <span className="text-gray-400">⏳ Ждем</span>
                       ) : (
@@ -883,115 +1001,128 @@
         {entries.length > 0 && (
           <>
             <div className="grid lg:grid-cols-2 gap-6">
-              <div className="bg-white p-4 rounded shadow">
-                <h3 className="font-semibold mb-2">📈 Самочувствие по дням</h3>
-                <div className="chart-container"><canvas ref={refHealth}></canvas></div>
+              <div className="bg-white card">
+                <div className="p-6">
+                  <h3 className="font-semibold mb-4 text-slate-800">📈 Самочувствие по дням</h3>
+                  <div className="chart-container"><canvas ref={refHealth}></canvas></div>
+                </div>
               </div>
-              <div className="bg-white p-4 rounded shadow">
-                <h3 className="font-semibold mb-2">🏃 Уровень активности</h3>
-                <div className="chart-container"><canvas ref={refActivity}></canvas></div>
+              <div className="bg-white card">
+                <div className="p-6">
+                  <h3 className="font-semibold mb-4 text-slate-800">🏃 Уровень активности</h3>
+                  <div className="chart-container"><canvas ref={refActivity}></canvas></div>
+                </div>
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded shadow">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">🍎 Питание и калории</h3>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setCalorieGoal('maintain')}
-                    className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                      calorieGoal === 'maintain' 
-                        ? 'bg-green-500 text-white' 
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    🟢 Поддержание
-                  </button>
-                  <button
-                    onClick={() => setCalorieGoal('lose')}
-                    className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                      calorieGoal === 'lose' 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    🔵 Снижение
-                  </button>
-                  <button
-                    onClick={() => setCalorieGoal('gain')}
-                    className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                      calorieGoal === 'gain' 
-                        ? 'bg-yellow-500 text-white' 
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    🟡 Набор массы
-                  </button>
+            <div className="bg-white card">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-semibold text-slate-800">🍎 Питание и калории</h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCalorieGoal('maintain')}
+                      className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                        calorieGoal === 'maintain' 
+                          ? 'bg-emerald-400 text-white' 
+                          : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                      }`}
+                    >
+                      🟢 Поддержание
+                    </button>
+                    <button
+                      onClick={() => setCalorieGoal('lose')}
+                      className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                        calorieGoal === 'lose' 
+                          ? 'bg-blue-400 text-white' 
+                          : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                      }`}
+                    >
+                      🔵 Снижение
+                    </button>
+                    <button
+                      onClick={() => setCalorieGoal('gain')}
+                      className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                        calorieGoal === 'gain' 
+                          ? 'bg-amber-400 text-white' 
+                          : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                      }`}
+                    >
+                      🟡 Набор массы
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div ref={refCalories} className="chart-container"></div>
-              <div className="mt-3 text-sm text-gray-600">
-                <div className="flex flex-wrap gap-4">
-                  <span>🟢 Зеленый точки: &gt;50% овощей</span>
-                  <span>🟡 Желтые точки: 30-50% овощей</span>
-                  <span>🔴 Красные точки: &lt;30% овощей</span>
+                <div ref={refCalories} className="chart-container"></div>
+                <div className="mt-4 text-sm text-slate-500">
+                  <div className="flex flex-wrap gap-4">
+                    <span>🟢 Зеленый точки: &gt;50% овощей</span>
+                    <span>🟡 Желтые точки: 30-50% овощей</span>
+                    <span>🔴 Красные точки: &lt;30% овощей</span>
+                  </div>
                 </div>
               </div>
             </div>
           </>
         )}
 
-        <section className="bg-white p-4 rounded shadow">
-          <h3 className="font-semibold mb-3">📚 История записей</h3>
-          {entries.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500 italic text-lg">📝 Пока нет записей</p>
-              <p className="text-gray-400 mt-2">Загрузите тестовые данные или добавьте первую запись!</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {entries.slice(0, 10).map((e, i) => (
-                <div key={i} className="border p-4 rounded-lg hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-medium text-lg">
-                      {new Date(e.date).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
-                    </span>
-                    <div className="flex space-x-1 text-xl">
-                      {Array(Math.min(e.coffee || 0, 5)).fill().map((_, j) => <span key={j}>☕</span>)}
-                      {Array(Math.min(e.alco || 0, 5)).fill().map((_, j) => <span key={j}>🍺</span>)}
+        <section className="bg-white card">
+          <div className="p-6">
+            <h3 className="font-semibold mb-4 text-slate-800">📚 История записей</h3>
+            {entries.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-slate-500 italic text-lg">📝 Пока нет записей</p>
+                <p className="text-slate-400 mt-2">Загрузите тестовые данные или добавьте первую запись!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {entries.slice(0, 10).map((e, i) => (
+                  <div key={i} className="border border-slate-200 p-4 rounded-xl hover:shadow-sm transition-all bg-slate-50">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="font-medium text-lg text-slate-800">
+                        {new Date(e.date).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
+                      </span>
+                      <div className="flex space-x-1 text-xl">
+                        {Array(Math.min(e.coffee || 0, 5)).fill().map((_, j) => <span key={j}>☕</span>)}
+                        {Array(Math.min(e.alco || 0, 5)).fill().map((_, j) => <span key={j}>🍺</span>)}
+                      </div>
                     </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
+                      <div className="flex items-center">
+                        <span className="mr-2">😴</span>
+                        <span className="text-slate-700">Сон: {sleepToText(e.sleep)}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="mr-2">😊</span>
+                        <span className="text-slate-700">Настроение: {moodToText(e.mood)}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="mr-2">❤️</span>
+                        <span className="text-slate-700">Здоровье: {healthToText(e.health)}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="mr-2">{['💤','🚶','🏃','🏋️','🔥'][e.activity] || '❓'}</span>
+                        <span className="text-slate-700">Активность: {activityToText(e.activity)}</span>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <span className="text-sm text-slate-500">🍽️ Калории: </span>
+                      <span className="font-medium text-slate-700">{e.calMin}–{e.calMax} ккал</span>
+                      <span className="text-sm text-slate-500 ml-4">🥗 Овощи: </span>
+                      <span className={`font-medium ${e.vege >= 50 ? 'text-emerald-600' : e.vege >= 30 ? 'text-amber-600' : 'text-rose-600'}`}>
+                        {e.vege}%
+                      </span>
+                    </div>
+                    <p className="italic text-slate-600 bg-white p-3 rounded-lg border border-slate-100">"{e.summary}"</p>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
-                    <div className="flex items-center">
-                      <span className="mr-2">😴</span>
-                      <span>Сон: {sleepToText(e.sleep)}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="mr-2">😊</span>
-                      <span>Настроение: {moodToText(e.mood)}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="mr-2">❤️</span>
-                      <span>Здоровье: {healthToText(e.health)}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="mr-2">{['💤','🚶','🏃','🏋️','🔥'][e.activity] || '❓'}</span>
-                      <span>Активность: {activityToText(e.activity)}</span>
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <span className="text-sm text-gray-500">🍽️ Калории: </span>
-                    <span className="font-medium">{e.calMin}–{e.calMax} ккал</span>
-                    <span className="text-sm text-gray-500 ml-4">🥗 Овощи: </span>
-                    <span className={`font-medium ${e.vege >= 50 ? 'text-green-600' : e.vege >= 30 ? 'text-yellow-600' : 'text-red-600'}`}>
-                      {e.vege}%
-                    </span>
-                  </div>
-                  <p className="italic text-gray-600 bg-gray-50 p-2 rounded">"{e.summary}"</p>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+                {entries.length > 10 && (
+                  <p className="text-center text-slate-500 italic mt-6">
+                    И еще {entries.length - 10} записей...
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </section>
       </div>
     );
