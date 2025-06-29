@@ -1,732 +1,19 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI Health Tracker</title>
-  <script crossorigin src="https://unpkg.com/react@17/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
-  <style>
-    .chart-container { position: relative; height: 300px; width: 100%; }
-    .card { 
-      border-radius: 12px; 
-      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03); 
-    }
-    .card-header { border-radius: 12px 12px 0 0; }
-  </style>
-</head>
-<body class="bg-slate-50 min-h-screen p-4">
-  <div id="root"></div>
-
-  <script>
-    // Утилиты для генерации тестовых данных
-    function randomBetween(min, max) {
-      return Math.floor(Math.random() * (max - min + 1)) + min;
-    }
-
-    function getDateDaysAgo(daysAgo) {
-      const date = new Date();
-      date.setDate(date.getDate() - daysAgo);
-      return date.toISOString().split('T')[0];
-    }
-
-    // Функции преобразования
-    function sleepToText(value) {
-      const texts = { '-2': 'Ужасно', '-1': 'Плохо', '0': 'Нормально', '1': 'Хорошо', '2': 'Отлично' };
-      return texts[value.toString()] || 'Неизвестно';
-    }
-
-    function moodToText(value) {
-      const texts = { '-2': 'Депрессия', '-1': 'Грустно', '0': 'Нейтрально', '1': 'Хорошо', '2': 'Отлично' };
-      return texts[value.toString()] || 'Неизвестно';
-    }
-
-    function healthToText(value) {
-      const texts = { '-2': 'Очень плохо', '-1': 'Плохо', '0': 'Нормально', '1': 'Хорошо', '2': 'Отлично' };
-      return texts[value.toString()] || 'Неизвестно';
-    }
-
-    function activityToText(value) {
-      const texts = { '0': 'Отдых', '1': 'Легкая', '2': 'Умеренная', '3': 'Интенсивная', '4': 'Максимальная' };
-      return texts[value.toString()] || 'Неизвестно';
-    }
-
-    // Добавляем недостающую функцию getMetricText
-    function getMetricText(value, type) {
-      if (type === 'sleep') return sleepToText(value);
-      if (type === 'mood') return moodToText(value);
-      if (type === 'health') return healthToText(value);
-      if (type === 'activity') return activityToText(value);
-      return value.toString();
-    }
-
-    // Функция для получения рекомендаций от ИИ
-    async function getAIRecommendations(entries) {
-      if (!entries.length) return 'Недостаточно данных для анализа';
-      
-      const last7 = entries.slice(0, 7);
-      const summaries = last7.map(e => `${e.date}: ${e.summary || e.original}`).join('\n');
-      
-      const prompt = `Проанализируй мой образ жизни за последние ${last7.length} дней и дай краткую рекомендацию (максимум 2 предложения):
-
-${summaries}
-
-Ответь только рекомендацией, без пояснений.`;
-
-      try {
-        const response = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: prompt, mode: 'recommendation' })
-        });
-        
-        if (!response.ok) throw new Error('API Error');
-        const result = await response.json();
-        return result.summary || result.recommendation || 'Продолжайте следить за своим здоровьем!';
-      } catch (error) {
-        console.error('Ошибка получения рекомендаций:', error);
-        return 'Продолжайте следить за своим здоровьем!';
-      }
-    }
-
-    // Тестовые описания дней
-    const dayDescriptions = [
-      "хорошо выспался, позавтракал овсянкой с фруктами, пошел пешком на работу 2 км, выпил 2 кофе, на обед салат с курицей, вечером йога 30 минут, настроение отличное",
-      "плохо спал всю ночь, болела голова, завтрак пропустил, выпил много кофе - 4 чашки, на обед только пельмени, после работы сразу домой, настроение паршивое",
-      "проснулся бодрым, сделал зарядку, позавтракал яичницей с овощами, прошел пешком 3 км, выпил кофе утром, обедал борщом и салатом, вечером плавал в бассейне час, хорошее настроение",
-      "спал нормально, завтрак - творог с ягодами, ехал на автобусе, 2 кофе за день, обед в кафе - паста с овощами, вечером встреча с друзьями, выпили пару бокалов вина, весело"
-    ];
-
-    function generateHealthEntry(daysAgo) {
-      const originalText = dayDescriptions[randomBetween(0, dayDescriptions.length - 1)];
-      
-      // Убираем хардкод - теперь все значения генерируются случайно
-      // В реальности эти данные должны приходить от ИИ
-      const sleep = randomBetween(-2, 2);
-      const mood = randomBetween(-2, 2);
-      const health = randomBetween(-2, 2);
-      const activity = randomBetween(0, 4);
-      
-      // Реалистичные случайные значения для калорий
-      const baseCalMin = randomBetween(1200, 1800);
-      const calMax = baseCalMin + randomBetween(200, 600);
-      
-      // Реалистичные случайные значения для остальных параметров
-      const vege = randomBetween(5, 70); // 5-70% овощей
-      const coffee = randomBetween(0, 4); // 0-4 чашки кофе
-      const alco = randomBetween(0, 3); // 0-3 порции алкоголя
-      
-      // Генерируем случайные резюме
-      const summaries = [
-        'обычный рабочий день',
-        'активный день с тренировкой', 
-        'спокойный выходной',
-        'день с плохим сном',
-        'продуктивный день',
-        'день с друзьями',
-        'тяжелый рабочий день'
-      ];
-      const summary = summaries[randomBetween(0, summaries.length - 1)];
-      
-      return {
-        date: getDateDaysAgo(daysAgo),
-        sleep, mood, health, activity,
-        calMin: baseCalMin, calMax, vege, coffee, alco,
-        summary, original: originalText
-      };
-    }
-
-    function generateTestData(days) {
-      const entries = [];
-      for (let i = 1; i <= days; i++) {
-        entries.push(generateHealthEntry(i));
-      }
-      return entries.sort((a, b) => new Date(b.date) - new Date(a.date));
-    }
-
-    // РЕАЛЬНЫЙ API ВЫЗОВ К GROQ с улучшенным промптом для подсчета калорий
-    async function callGroqAPI(dayText) {
-      try {
-        const response = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: dayText,
-            prompt: `Проанализируй описание дня и верни точные числовые значения в JSON формате:
-
-ОПИСАНИЕ ДНЯ: "${dayText}"
-
-Оцени по шкале от -2 до +2:
-- sleep (качество сна): -2=ужасно, -1=плохо, 0=нормально, 1=хорошо, 2=отлично
-- mood (настроение): -2=депрессия, -1=грустно, 0=нейтрально, 1=хорошо, 2=отлично  
-- health (самочувствие): -2=очень плохо, -1=плохо, 0=нормально, 1=хорошо, 2=отлично
-
-Оцени физическую активность от 0 до 4:
-- activity: 0=отдых, 1=легкая, 2=умеренная, 3=интенсивная, 4=экстремальная
-
-ВАЖНО - Подсчет калорий:
-Найди ВСЕ упоминания еды и напитков в тексте. Используй свои знания о калорийности продуктов для расчета общего потребления калорий за день. Учитывай:
-- Все приемы пищи (завтрак, обед, ужин, перекусы)
-- Все напитки (включая кофе, чай, соки, алкоголь)
-- Размеры порций (если не указаны, предполагай стандартные)
-- Способы приготовления (жареное, вареное, сырое)
-
-Оцени диапазон калорий с учетом неточности порций:
-- calMin: минимальная реалистичная оценка калорий
-- calMax: максимальная реалистичная оценка калорий
-
-Оцени долю овощей и фруктов в общем рационе (vege в %): 0-100%
-
-Подсчитай количество:
-- coffee: точное количество чашек/порций кофе (0-10)
-- alco: точное количество порций алкоголя (0-10)
-
-Создай краткое резюме дня (summary): одна фраза о главном.
-
-Отвечай ТОЛЬКО в JSON формате:
-{
-  "sleep": число_от_-2_до_2,
-  "mood": число_от_-2_до_2, 
-  "health": число_от_-2_до_2,
-  "activity": число_от_0_до_4,
-  "calMin": минимум_калорий_число,
-  "calMax": максимум_калорий_число,
-  "vege": процент_овощей_число_0_100,
-  "coffee": количество_чашек_число,
-  "alco": количество_порций_число,
-  "summary": "краткое_описание_дня"
-}`
-          })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `HTTP ${response.status}: ${errorData.message || 'Unknown error'}`);
-        }
-
-        const result = await response.json();
-        
-        // Результат уже содержит все нужные поля:
-        // sleep, mood, health, activity, calMin, calMax, vege, coffee, alco, summary
-        return result;
-        
-      } catch (error) {
-        console.error('API Error:', error);
-        throw new Error(`Ошибка анализа ИИ: ${error.message}`);
-      }
-    }
-
-    // Глобальные переменные для доступа из React
-    window.generateTestData = generateTestData;
-    window.generateHealthEntry = generateHealthEntry;
-    window.sleepToText = sleepToText;
-    window.moodToText = moodToText;
-    window.healthToText = healthToText;
-    window.activityToText = activityToText;
-    window.getMetricText = getMetricText;
-    window.callGroqAPI = callGroqAPI;
-    window.getAIRecommendations = getAIRecommendations;
-  </script>
-
-  <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
-
-    function HealthTracker() {
-      // Основные настройки
-      const user = { weight: 98, height: 178, age: 28, name: 'Тестовый пользователь' };
-      const bmr = 88.362 + 13.397 * user.weight + 4.799 * user.height - 5.677 * user.age;
-      const calorieNorm = Math.round(bmr * 1.375);
-
-      // Состояния
-      const [text, setText] = useState('');
-      const [loading, setLoading] = useState(false);
-      const [entries, setEntries] = useState([]);
-      const [weeklySummary, setWeeklySummary] = useState(null);
-      const [weeklyAdvice, setWeeklyAdvice] = useState('');
-      const [showTestDataButton, setShowTestDataButton] = useState(true);
-      const [calorieGoal, setCalorieGoal] = useState('maintain');
-      const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // Сегодня по умолчанию
-      const [editingEntry, setEditingEntry] = useState(null);
-      const [isEditing, setIsEditing] = useState(false);
-      const [showDataPanel, setShowDataPanel] = useState(false);
-      const [apiError, setApiError] = useState('');
-      const [expandedEntries, setExpandedEntries] = useState(new Set());
-
-      // Refs для графиков
-      const refHealth = useRef();
-      const refActivity = useRef();
-      const refCalories = useRef();
-
-      // Загрузка данных при старте
-      useEffect(() => {
-        // Заменяем localStorage на состояние в памяти
-        // const savedEntries = localStorage.getItem('healthEntries');
-        // if (savedEntries) {
-        //   try {
-        //     setEntries(JSON.parse(savedEntries));
-        //     setShowTestDataButton(false);
-        //   } catch (e) {
-        //     console.error('Ошибка загрузки данных:', e);
-        //   }
-        // }
-      }, []);
-
-      // Обновление при изменении записей
-      useEffect(() => {
-        if (entries.length > 0) {
-          // localStorage.setItem('healthEntries', JSON.stringify(entries));
-          drawHealth();
-          drawActivity();
-          drawCalories();
-          updateWeekly();
-        }
-      }, [entries, calorieGoal]);
-
-      // Функции для работы с данными
-      const loadTestData = () => {
-        const testData = window.generateTestData(14);
-        setEntries(testData);
-        setShowTestDataButton(false);
-      };
-
-      const clearAllData = () => {
-        if (confirm('Удалить все данные?')) {
-          setEntries([]);
-          // localStorage.removeItem('healthEntries');
-          setShowTestDataButton(true);
-          setWeeklySummary(null);
-          setWeeklyAdvice('');
-        }
-      };
-
-      const addRandomEntry = () => {
-        const today = new Date().toISOString().split('T')[0];
-        const existing = entries.find(e => e.date === today);
-        
-        if (existing && !confirm('Запись за сегодня уже есть. Заменить?')) {
-          return;
-        }
-        
-        const randomEntry = window.generateHealthEntry(0);
-        setEntries(prev => {
-          const filtered = prev.filter(e => e.date !== today);
-          return [randomEntry, ...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
-        });
-      };
-
-      // Генерация последних 7 дней для календаря
-      const getLast7Days = () => {
-        const days = [];
-        for (let i = 6; i >= 0; i--) {
-          const date = new Date();
-          date.setDate(date.getDate() - i);
-          const dateStr = date.toISOString().split('T')[0];
-          const dayName = date.toLocaleDateString('ru-RU', { weekday: 'short' });
-          const dayNum = date.getDate();
-          const hasEntry = entries.some(entry => entry.date === dateStr);
-          
-          days.push({
-            date: dateStr,
-            dayName,
-            dayNum,
-            hasEntry,
-            isToday: i === 0,
-            isFuture: i < 0
-          });
-        }
-        return days;
-      };
-
-      // Обработка выбора даты
-      const handleDateSelect = (dateStr) => {
-        const existingEntry = entries.find(entry => entry.date === dateStr);
-        
-        if (existingEntry) {
-          setSelectedDate(dateStr);
-          setEditingEntry(existingEntry);
-          setText(existingEntry.original || '');
-          setIsEditing(true);
-        } else {
-          setSelectedDate(dateStr);
-          setEditingEntry(null);
-          setText('');
-          setIsEditing(false);
-        }
-      };
-
-      // Отмена редактирования
-      const handleCancelEdit = () => {
-        setSelectedDate(new Date().toISOString().split('T')[0]); // Возвращаем к сегодня
-        setEditingEntry(null);
-        setText('');
-        setIsEditing(false);
-        setApiError('');
-      };
-
-      // Анализ дня ЧЕРЕЗ РЕАЛЬНЫЙ API
-      const handleAnalyze = async () => {
-        if (!text.trim()) {
-          alert('Опишите день.');
-          return;
-        }
-
-        if (!selectedDate) {
-          alert('Выберите дату для записи.');
-          return;
-        }
-        
-        setLoading(true);
-        setApiError('');
-        
-        try {
-          // ИСПОЛЬЗУЕМ РЕАЛЬНЫЙ API ВМЕСТО ЗАГЛУШКИ
-          const metrics = await window.callGroqAPI(text);
-          
-          if (isEditing) {
-            setEntries(prev => 
-              prev.map(entry => 
-                entry.date === selectedDate 
-                  ? { ...entry, ...metrics, original: text }
-                  : entry
-              ).sort((a, b) => new Date(b.date) - new Date(a.date))
-            );
-          } else {
-            setEntries(prev => {
-              const filtered = prev.filter(e => e.date !== selectedDate);
-              return [{ date: selectedDate, ...metrics }, ...filtered]
-                .sort((a, b) => new Date(b.date) - new Date(a.date));
-            });
-          }
-          
-          handleCancelEdit();
-          
-        } catch(err) {
-          console.error('API Error:', err);
-          setApiError(err.message);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      // Обновление еженедельной сводки
-      const updateWeekly = async () => {
-        const last7 = entries.slice(0, 7);
-        if (last7.length < 1) return;
-        
-        const sum = last7.reduce((a, e) => {
-          a.sleep += e.sleep; a.mood += e.mood; a.health += e.health;
-          a.activity += e.activity; a.vege += e.vege;
-          a.coffee += e.coffee; a.alco += e.alco;
-          return a;
-        }, { sleep: 0, mood: 0, health: 0, activity: 0, vege: 0, coffee: 0, alco: 0 });
-        
-        const n = last7.length;
-        
-        setWeeklySummary({
-          days: n,
-          sleep: sum.sleep / n,
-          mood: sum.mood / n,
-          health: sum.health / n,
-          activity: sum.activity / n,
-          vege: Math.round(sum.vege / n),
-          coffee: sum.coffee / n,
-          alco: sum.alco / n
-        });
-        
-        // Получаем ИИ-рекомендации
-        const aiAdvice = await window.getAIRecommendations(last7);
-        setWeeklyAdvice(aiAdvice);
-      };
-
-      // Определение цвета метрики
-      const getMetricColor = (value, type) => {
-        if (type === 'sleep' || type === 'mood' || type === 'health') {
-          if (value >= 1) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
-          if (value >= 0) return 'text-amber-600 bg-amber-50 border-amber-200';
-          return 'text-rose-600 bg-rose-50 border-rose-200';
-        }
-        if (type === 'activity') {
-          if (value >= 2.5) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
-          if (value >= 1.5) return 'text-amber-600 bg-amber-50 border-amber-200';
-          return 'text-rose-600 bg-rose-50 border-rose-200';
-        }
-        if (type === 'vege') {
-          if (value >= 50) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
-          if (value >= 30) return 'text-amber-600 bg-amber-50 border-amber-200';
-          return 'text-rose-600 bg-rose-50 border-rose-200';
-        }
-        if (type === 'coffee') {
-          if (value <= 2) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
-          if (value <= 3) return 'text-amber-600 bg-amber-50 border-amber-200';
-          return 'text-rose-600 bg-rose-50 border-rose-200';
-        }
-        return 'text-slate-600 bg-slate-50 border-slate-200';
-      };
-
-      // Функции рисования графиков
-      const drawHealth = () => {
-        const ctx = refHealth.current?.getContext('2d');
-        if (!ctx || !entries.length) return;
-        
-        const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
-        
-        if (window.chartHealth) window.chartHealth.destroy();
-        window.chartHealth = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: sortedEntries.map(e => e.date.slice(5).replace('-', '.')),
-            datasets: [
-              { 
-                label: 'Сон', 
-                data: sortedEntries.map(e => e.sleep), 
-                borderColor: '#3b82f6', 
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                fill: false, 
-                tension: 0.3,
-                pointRadius: 6,
-                pointHoverRadius: 8
-              },
-              { 
-                label: 'Настроение', 
-                data: sortedEntries.map(e => e.mood), 
-                borderColor: '#10b981', 
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                fill: false, 
-                tension: 0.3,
-                pointRadius: 6,
-                pointHoverRadius: 8
-              },
-              { 
-                label: 'Здоровье', 
-                data: sortedEntries.map(e => e.health), 
-                borderColor: '#8b5cf6', 
-                backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                fill: false, 
-                tension: 0.3,
-                pointRadius: 6,
-                pointHoverRadius: 8
-              }
-            ]
-          },
-          options: { 
-            responsive: true, 
-            maintainAspectRatio: false,
-            interaction: {
-              intersect: false,
-              mode: 'index'
-            },
-            plugins: {
-              legend: {
-                labels: {
-                  usePointStyle: true,
-                  pointStyle: 'circle',
-                  padding: 20,
-                  font: { size: 12, weight: 'bold' }
-                }
-              },
-              tooltip: {
-                callbacks: {
-                  title: function(context) {
-                    const entry = sortedEntries[context[0].dataIndex];
-                    return entry.date;
-                  },
-                  afterLabel: function(context) {
-                    const entry = sortedEntries[context.dataIndex];
-                    if (context.dataset.label === 'Сон') return 'Сон: ' + window.sleepToText(entry.sleep);
-                    if (context.dataset.label === 'Настроение') return 'Настроение: ' + window.moodToText(entry.mood);
-                    if (context.dataset.label === 'Здоровье') return 'Здоровье: ' + window.healthToText(entry.health);
-                    return '';
-                  }
-                }
-              }
-            },
-            scales: { 
-              x: {
-                grid: { display: false }
-              },
-              y: { 
-                min: -2.2, 
-                max: 2.2,
-                grid: { 
-                  display: true,
-                  color: function(context) {
-                    return context.tick.value === 0 ? '#64748b' : '#e2e8f0';
-                  },
-                  lineWidth: function(context) {
-                    return context.tick.value === 0 ? 2 : 1;
-                  }
-                },
-                ticks: { 
-                  stepSize: 1,
-                  callback: function(value) {
-                    const emojiLabels = {
-                      '-2': '👎👎',
-                      '-1': '👎',
-                      '0': '👌', 
-                      '1': '👍',
-                      '2': '👍👍'
-                    };
-                    return emojiLabels[value.toString()] || '';
-                  }
-                }
-              } 
-            }
-          }
-        });
-      };
-
-      const drawActivity = () => {
-        const ctx = refActivity.current?.getContext('2d');
-        if (!ctx || !entries.length) return;
-        
-        const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
-        
-        if (window.chartAct) window.chartAct.destroy();
-        window.chartAct = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: sortedEntries.map(e => e.date.slice(5).replace('-', '.')),
-            datasets: [{
-              label: 'Активность',
-              data: sortedEntries.map(e => e.activity),
-              backgroundColor: sortedEntries.map(e =>
-                e.activity === 0 ? '#94a3b8' :
-                e.activity === 1 ? '#10b981' :
-                e.activity === 2 ? '#3b82f6' :
-                e.activity === 3 ? '#f59e0b' : '#ef4444'
-              ),
-              borderRadius: 2,
-              borderSkipped: false,
-              borderWidth: 0,
-              barPercentage: 0.7,
-              categoryPercentage: 0.8
-            }]
-          },
-          options: { 
-            responsive: true, 
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  title: function(context) {
-                    const entry = sortedEntries[context[0].dataIndex];
-                    return entry.date;
-                  },
-                  label: function(context) {
-                    const entry = sortedEntries[context.dataIndex];
-                    return 'Активность: ' + window.activityToText(entry.activity);
-                  }
-                }
-              }
-            },
-            scales: { 
-              x: {
-                grid: { display: false }
-              },
-              y: { 
-                min: 0, 
-                max: 4, 
-                grid: { display: true, color: '#e2e8f0' },
-                ticks: { 
-                  stepSize: 1,
-                  callback: function(value) {
-                    const labels = {
-                      '0': 'Отдых',
-                      '1': 'Легкая',
-                      '2': 'Умеренная',
-                      '3': 'Интенсивная',
-                      '4': 'Максимальная'
-                    };
-                    return labels[value.toString()] || '';
-                  }
-                }
-              } 
-            }
-          }
-        });
-      };
-
-      const drawCalories = () => {
-        if (!refCalories.current || !entries.length) return;
-        
-        const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
-        const dates = sortedEntries.map(e => e.date.slice(5).replace('-', '.'));
-        const centers = sortedEntries.map(e => (e.calMin + e.calMax) / 2);
-        const errUp = sortedEntries.map(e => e.calMax - (e.calMin + e.calMax) / 2);
-        const errDn = sortedEntries.map(e => (e.calMin + e.calMax) / 2 - e.calMin);
-        const colors = sortedEntries.map(e => e.vege >= 50 ? '#10b981' : e.vege >= 30 ? '#f59e0b' : '#ef4444');
-        
-        let targetCalories = calorieNorm;
-        let goalText = '';
-        let shapeColor = '';
-        
-        if (calorieGoal === 'lose') {
-          targetCalories = Math.round(calorieNorm * 0.75); // Снижено с 0.8 до 0.75
+if (calorieGoal === 'lose') {
+          targetCalories = Math.round(calorieNorm * 0.75);
           goalText = 'Снижение веса';
           shapeColor = 'rgba(59, 130, 246, 0.2)';
         } else if (calorieGoal === 'gain') {
-          targetCalories = Math.round(calorieNorm * 1.15); // Снижено с 1.2 до 1.15
+          targetCalories = Math.round(calorieNorm * 1.15);
           goalText = 'Набор массы';
           shapeColor = 'rgba(245, 158, 11, 0.2)';
         } else {
-          targetCalories = Math.round(calorieNorm * 0.95); // Снижено с 1.0 до 0.95
+          targetCalories = Math.round(calorieNorm * 0.95);
           goalText = 'Поддержание веса';
           shapeColor = 'rgba(16, 185, 129, 0.2)';
         }
         
-        const normMin = targetCalories * 0.85; // Сузили диапазон
+        const normMin = targetCalories * 0.85;
         const normMax = targetCalories * 1.15;
-        
-        const shape = [{
-          type: 'rect', xref: 'paper', yref: 'y',
-          x0: 0, x1: 1, y0: normMin, y1: normMax,
-          fillcolor: shapeColor, line: { width: 0 }
-        }];
-
-        const trace = {
-          x: dates, y: centers, mode: 'markers',
-          marker: { color: colors, size: 12 },
-          error_y: { type: 'data', array: errUp, arrayminus: errDn, thickness: 2, width: 6 },
-          customdata: sortedEntries.map(e => [e.vege, e.coffee, e.alco]),
-          hovertemplate:
-            '<b>%{x}</b><br>' +
-            'Калории: %{y-error_y.arrayminus:.0f}–%{y+error_y.array:.0f} ккал<br>' +
-            'Овощи: %{customdata[0]}%<br>' +
-            '☕ %{customdata[1]}  🍺 %{customdata[2]}<extra></extra>'
-        };
-
-        const layout = {
-          title: { 
-            text: '🍎 Питание и калории<br><sub style="color: #666; font-size: 12px;">Цель: ' + goalText + ' (' + targetCalories + ' ккал/день)</sub>'
-          },
-          shapes: shape,
-          xaxis: { title: 'День', showgrid: false },
-          yaxis: { title: 'ккал', showgrid: true },
-          margin: { t: 60, b: 60, l: 60, r: 20 },
-          showlegend: false,
-          annotations: [{
-            x: 0.02,
-            y: 0.98,
-            xref: 'paper',
-            yref: 'paper',
-            text: '🎯 Целевая зона: ' + normMin.toFixed(0) + '-' + normMax.toFixed(0) + ' ккал',
-            showarrow: false,
-            font: { size: 11, color: '#666' },
-            bgcolor: 'rgba(255,255,255,0.8)',
-            bordercolor: '#ddd',
-            borderwidth: 1
-          }]
-        };
-
-        Plotly.react(refCalories.current, [trace], layout, { displayModeBar: false, responsive: true });
-      };
         
         const shape = [{
           type: 'rect', xref: 'paper', yref: 'y',
@@ -910,7 +197,57 @@ ${summaries}
                   <div className="p-4 rounded-xl border transition-all hover:shadow-sm bg-slate-50 border-slate-200 text-slate-600">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex space-x-1">
-                        <span className="text-lg">☕</span>
+                        <span className="text-sm text-slate-500 ml-4">🥗 Овощи: </span>
+                        <span className={`font-medium ${e.vege >= 50 ? 'text-emerald-600' : e.vege >= 30 ? 'text-amber-600' : 'text-rose-600'}`}>
+                          {e.vege}%
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="italic text-slate-600 bg-white p-3 rounded-lg border border-slate-100">"{e.summary}"</p>
+                        
+                        {expandedEntries.has(i) && e.original && (
+                          <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                            <p className="text-sm text-blue-800 font-medium mb-1">Полный текст записи:</p>
+                            <p className="text-sm text-blue-700">"{e.original}"</p>
+                          </div>
+                        )}
+                        
+                        {e.original && (
+                          <button
+                            onClick={() => {
+                              const newExpanded = new Set(expandedEntries);
+                              if (newExpanded.has(i)) {
+                                newExpanded.delete(i);
+                              } else {
+                                newExpanded.add(i);
+                              }
+                              setExpandedEntries(newExpanded);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+                          >
+                            {expandedEntries.has(i) ? '▲ Скрыть полный текст' : '▼ Показать полный текст'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {entries.length > 10 && (
+                    <p className="text-center text-slate-500 italic mt-6">
+                      И еще {entries.length - 10} записей...
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<HealthTracker />, document.getElementById('root'));
+  </script>
+</body>
+</html>lg">☕</span>
                         <span className="text-lg">🍺</span>
                       </div>
                       <span className="text-xs font-medium opacity-75">НАПИТКИ</span>
@@ -1214,54 +551,648 @@ ${summaries}
                       <div className="mb-3">
                         <span className="text-sm text-slate-500">🍽️ Калории: </span>
                         <span className="font-medium text-slate-700">{e.calMin}–{e.calMax} ккал</span>
-                        <span className="text-sm text-slate-500 ml-4">🥗 Овощи: </span>
-                        <span className={`font-medium ${e.vege >= 50 ? 'text-emerald-600' : e.vege >= 30 ? 'text-amber-600' : 'text-rose-600'}`}>
-                          {e.vege}%
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        <p className="italic text-slate-600 bg-white p-3 rounded-lg border border-slate-100">"{e.summary}"</p>
-                        
-                        {expandedEntries.has(i) && e.original && (
-                          <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                            <p className="text-sm text-blue-800 font-medium mb-1">Полный текст записи:</p>
-                            <p className="text-sm text-blue-700">"{e.original}"</p>
-                          </div>
-                        )}
-                        
-                        {e.original && (
-                          <button
-                            onClick={() => {
-                              const newExpanded = new Set(expandedEntries);
-                              if (newExpanded.has(i)) {
-                                newExpanded.delete(i);
-                              } else {
-                                newExpanded.add(i);
-                              }
-                              setExpandedEntries(newExpanded);
-                            }}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
-                          >
-                            {expandedEntries.has(i) ? '▲ Скрыть полный текст' : '▼ Показать полный текст'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {entries.length > 10 && (
-                    <p className="text-center text-slate-500 italic mt-6">
-                      И еще {entries.length - 10} записей...
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </section>
-        </div>
-      );
+                        <span className="text-<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Health Tracker</title>
+  <script crossorigin src="https://unpkg.com/react@17/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+  <style>
+    .chart-container { position: relative; height: 300px; width: 100%; }
+    .card { 
+      border-radius: 12px; 
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03); 
+    }
+    .card-header { border-radius: 12px 12px 0 0; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4">
+  <div id="root"></div>
+
+  <script>
+    // Утилиты для генерации тестовых данных
+    function randomBetween(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
-    ReactDOM.render(<HealthTracker />, document.getElementById('root'));
+    function getDateDaysAgo(daysAgo) {
+      const date = new Date();
+      date.setDate(date.getDate() - daysAgo);
+      return date.toISOString().split('T')[0];
+    }
+
+    // Функции преобразования
+    function sleepToText(value) {
+      const texts = { '-2': 'Ужасно', '-1': 'Плохо', '0': 'Нормально', '1': 'Хорошо', '2': 'Отлично' };
+      return texts[value.toString()] || 'Неизвестно';
+    }
+
+    function moodToText(value) {
+      const texts = { '-2': 'Депрессия', '-1': 'Грустно', '0': 'Нейтрально', '1': 'Хорошо', '2': 'Отлично' };
+      return texts[value.toString()] || 'Неизвестно';
+    }
+
+    function healthToText(value) {
+      const texts = { '-2': 'Очень плохо', '-1': 'Плохо', '0': 'Нормально', '1': 'Хорошо', '2': 'Отлично' };
+      return texts[value.toString()] || 'Неизвестно';
+    }
+
+    function activityToText(value) {
+      const texts = { '0': 'Отдых', '1': 'Легкая', '2': 'Умеренная', '3': 'Интенсивная', '4': 'Максимальная' };
+      return texts[value.toString()] || 'Неизвестно';
+    }
+
+    // Функция для получения рекомендаций от ИИ
+    async function getAIRecommendations(entries) {
+      if (!entries.length) return 'Недостаточно данных для анализа';
+      
+      const last7 = entries.slice(0, 7);
+      const summaries = last7.map(e => `${e.date}: ${e.summary || e.original}`).join('\n');
+      
+      const prompt = `Проанализируй мой образ жизни за последние ${last7.length} дней и дай краткую рекомендацию (максимум 2 предложения):
+
+${summaries}
+
+Ответь только рекомендацией, без пояснений.`;
+
+      try {
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: prompt, mode: 'recommendation' })
+        });
+        
+        if (!response.ok) throw new Error('API Error');
+        const result = await response.json();
+        return result.summary || result.recommendation || 'Продолжайте следить за своим здоровьем!';
+      } catch (error) {
+        console.error('Ошибка получения рекомендаций:', error);
+        return 'Продолжайте следить за своим здоровьем!';
+      }
+    }
+
+    // Тестовые описания дней
+    const dayDescriptions = [
+      "хорошо выспался, позавтракал овсянкой с фруктами, пошел пешком на работу 2 км, выпил 2 кофе, на обед салат с курицей, вечером йога 30 минут, настроение отличное",
+      "плохо спал всю ночь, болела голова, завтрак пропустил, выпил много кофе - 4 чашки, на обед только пельмени, после работы сразу домой, настроение паршивое",
+      "проснулся бодрым, сделал зарядку, позавтракал яичницей с овощами, прошел пешком 3 км, выпил кофе утром, обедал борщом и салатом, вечером плавал в бассейне час, хорошее настроение",
+      "спал нормально, завтрак - творог с ягодами, ехал на автобусе, 2 кофе за день, обед в кафе - паста с овощами, вечером встреча с друзьями, выпили пару бокалов вина, весело"
+    ];
+
+    function generateHealthEntry(daysAgo) {
+      const originalText = dayDescriptions[randomBetween(0, dayDescriptions.length - 1)];
+      
+      // Убираем хардкод - теперь все значения генерируются случайно
+      // В реальности эти данные должны приходить от ИИ
+      const sleep = randomBetween(-2, 2);
+      const mood = randomBetween(-2, 2);
+      const health = randomBetween(-2, 2);
+      const activity = randomBetween(0, 4);
+      
+      // Реалистичные случайные значения для калорий
+      const baseCalMin = randomBetween(1200, 1800);
+      const calMax = baseCalMin + randomBetween(200, 600);
+      
+      // Реалистичные случайные значения для остальных параметров
+      const vege = randomBetween(5, 70); // 5-70% овощей
+      const coffee = randomBetween(0, 4); // 0-4 чашки кофе
+      const alco = randomBetween(0, 3); // 0-3 порции алкоголя
+      
+      // Генерируем случайные резюме
+      const summaries = [
+        'обычный рабочий день',
+        'активный день с тренировкой', 
+        'спокойный выходной',
+        'день с плохим сном',
+        'продуктивный день',
+        'день с друзьями',
+        'тяжелый рабочий день'
+      ];
+      const summary = summaries[randomBetween(0, summaries.length - 1)];
+      
+      return {
+        date: getDateDaysAgo(daysAgo),
+        sleep, mood, health, activity,
+        calMin: baseCalMin, calMax, vege, coffee, alco,
+        summary, original: originalText
+      };
+    }
+
+    function generateTestData(days) {
+      const entries = [];
+      for (let i = 1; i <= days; i++) {
+        entries.push(generateHealthEntry(i));
+      }
+      return entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+    }
+
+    // РЕАЛЬНЫЙ API ВЫЗОВ К GROQ с улучшенным промптом для подсчета калорий
+    async function callGroqAPI(dayText) {
+      try {
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: dayText,
+            prompt: `Проанализируй описание дня и верни точные числовые значения в JSON формате:
+
+ОПИСАНИЕ ДНЯ: "${dayText}"
+
+Оцени по шкале от -2 до +2:
+- sleep (качество сна): -2=ужасно, -1=плохо, 0=нормально, 1=хорошо, 2=отлично
+- mood (настроение): -2=депрессия, -1=грустно, 0=нейтрально, 1=хорошо, 2=отлично  
+- health (самочувствие): -2=очень плохо, -1=плохо, 0=нормально, 1=хорошо, 2=отлично
+
+Оцени физическую активность от 0 до 4:
+- activity: 0=отдых, 1=легкая, 2=умеренная, 3=интенсивная, 4=экстремальная
+
+ВАЖНО - Подсчет калорий:
+Найди ВСЕ упоминания еды и напитков в тексте. Используй свои знания о калорийности продуктов для расчета общего потребления калорий за день. Учитывай:
+- Все приемы пищи (завтрак, обед, ужин, перекусы)
+- Все напитки (включая кофе, чай, соки, алкоголь)
+- Размеры порций (если не указаны, предполагай стандартные)
+- Способы приготовления (жареное, вареное, сырое)
+
+Оцени диапазон калорий с учетом неточности порций:
+- calMin: минимальная реалистичная оценка калорий
+- calMax: максимальная реалистичная оценка калорий
+
+Оцени долю овощей и фруктов в общем рационе (vege в %): 0-100%
+
+Подсчитай количество:
+- coffee: точное количество чашек/порций кофе (0-10)
+- alco: точное количество порций алкоголя (0-10)
+
+Создай краткое резюме дня (summary): одна фраза о главном.
+
+Отвечай ТОЛЬКО в JSON формате:
+{
+  "sleep": число_от_-2_до_2,
+  "mood": число_от_-2_до_2, 
+  "health": число_от_-2_до_2,
+  "activity": число_от_0_до_4,
+  "calMin": минимум_калорий_число,
+  "calMax": максимум_калорий_число,
+  "vege": процент_овощей_число_0_100,
+  "coffee": количество_чашек_число,
+  "alco": количество_порций_число,
+  "summary": "краткое_описание_дня"
+}`
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP ${response.status}: ${errorData.message || 'Unknown error'}`);
+        }
+
+        const result = await response.json();
+        return result;
+        
+      } catch (error) {
+        console.error('API Error:', error);
+        throw new Error(`Ошибка анализа ИИ: ${error.message}`);
+      }
+    }
+
+    // Глобальные переменные для доступа из React
+    window.generateTestData = generateTestData;
+    window.generateHealthEntry = generateHealthEntry;
+    window.sleepToText = sleepToText;
+    window.moodToText = moodToText;
+    window.healthToText = healthToText;
+    window.activityToText = activityToText;
+    window.callGroqAPI = callGroqAPI;
+    window.getAIRecommendations = getAIRecommendations;
   </script>
-</body>
-</html>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    function HealthTracker() {
+      // Основные настройки
+      const user = { weight: 98, height: 178, age: 28, name: 'Тестовый пользователь' };
+      const bmr = 88.362 + 13.397 * user.weight + 4.799 * user.height - 5.677 * user.age;
+      const calorieNorm = Math.round(bmr * 1.375);
+
+      // Состояния
+      const [text, setText] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [entries, setEntries] = useState([]);
+      const [weeklySummary, setWeeklySummary] = useState(null);
+      const [weeklyAdvice, setWeeklyAdvice] = useState('');
+      const [showTestDataButton, setShowTestDataButton] = useState(true);
+      const [calorieGoal, setCalorieGoal] = useState('maintain');
+      const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+      const [editingEntry, setEditingEntry] = useState(null);
+      const [isEditing, setIsEditing] = useState(false);
+      const [showDataPanel, setShowDataPanel] = useState(false);
+      const [apiError, setApiError] = useState('');
+      const [expandedEntries, setExpandedEntries] = useState(new Set());
+
+      // Refs для графиков
+      const refHealth = useRef();
+      const refActivity = useRef();
+      const refCalories = useRef();
+
+      // Загрузка данных при старте
+      useEffect(() => {
+        // Заменяем localStorage на состояние в памяти
+      }, []);
+
+      // Обновление при изменении записей
+      useEffect(() => {
+        if (entries.length > 0) {
+          drawHealth();
+          drawActivity();
+          drawCalories();
+          updateWeekly();
+        }
+      }, [entries, calorieGoal]);
+
+      // Функции для работы с данными
+      const loadTestData = () => {
+        const testData = window.generateTestData(14);
+        setEntries(testData);
+        setShowTestDataButton(false);
+      };
+
+      const clearAllData = () => {
+        if (confirm('Удалить все данные?')) {
+          setEntries([]);
+          setShowTestDataButton(true);
+          setWeeklySummary(null);
+          setWeeklyAdvice('');
+        }
+      };
+
+      const addRandomEntry = () => {
+        const today = new Date().toISOString().split('T')[0];
+        const existing = entries.find(e => e.date === today);
+        
+        if (existing && !confirm('Запись за сегодня уже есть. Заменить?')) {
+          return;
+        }
+        
+        const randomEntry = window.generateHealthEntry(0);
+        setEntries(prev => {
+          const filtered = prev.filter(e => e.date !== today);
+          return [randomEntry, ...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
+        });
+      };
+
+      // Генерация последних 7 дней для календаря
+      const getLast7Days = () => {
+        const days = [];
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          const dateStr = date.toISOString().split('T')[0];
+          const dayName = date.toLocaleDateString('ru-RU', { weekday: 'short' });
+          const dayNum = date.getDate();
+          const hasEntry = entries.some(entry => entry.date === dateStr);
+          
+          days.push({
+            date: dateStr,
+            dayName,
+            dayNum,
+            hasEntry,
+            isToday: i === 0,
+            isFuture: i < 0
+          });
+        }
+        return days;
+      };
+
+      // Обработка выбора даты
+      const handleDateSelect = (dateStr) => {
+        const existingEntry = entries.find(entry => entry.date === dateStr);
+        
+        if (existingEntry) {
+          setSelectedDate(dateStr);
+          setEditingEntry(existingEntry);
+          setText(existingEntry.original || '');
+          setIsEditing(true);
+        } else {
+          setSelectedDate(dateStr);
+          setEditingEntry(null);
+          setText('');
+          setIsEditing(false);
+        }
+      };
+
+      // Отмена редактирования
+      const handleCancelEdit = () => {
+        setSelectedDate(new Date().toISOString().split('T')[0]);
+        setEditingEntry(null);
+        setText('');
+        setIsEditing(false);
+        setApiError('');
+      };
+
+      // Анализ дня ЧЕРЕЗ РЕАЛЬНЫЙ API
+      const handleAnalyze = async () => {
+        if (!text.trim()) {
+          alert('Опишите день.');
+          return;
+        }
+
+        if (!selectedDate) {
+          alert('Выберите дату для записи.');
+          return;
+        }
+        
+        setLoading(true);
+        setApiError('');
+        
+        try {
+          const metrics = await window.callGroqAPI(text);
+          
+          if (isEditing) {
+            setEntries(prev => 
+              prev.map(entry => 
+                entry.date === selectedDate 
+                  ? { ...entry, ...metrics, original: text }
+                  : entry
+              ).sort((a, b) => new Date(b.date) - new Date(a.date))
+            );
+          } else {
+            setEntries(prev => {
+              const filtered = prev.filter(e => e.date !== selectedDate);
+              return [{ date: selectedDate, ...metrics }, ...filtered]
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+            });
+          }
+          
+          handleCancelEdit();
+          
+        } catch(err) {
+          console.error('API Error:', err);
+          setApiError(err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // Обновление еженедельной сводки
+      const updateWeekly = async () => {
+        const last7 = entries.slice(0, 7);
+        if (last7.length < 1) return;
+        
+        const sum = last7.reduce((a, e) => {
+          a.sleep += e.sleep; a.mood += e.mood; a.health += e.health;
+          a.activity += e.activity; a.vege += e.vege;
+          a.coffee += e.coffee; a.alco += e.alco;
+          return a;
+        }, { sleep: 0, mood: 0, health: 0, activity: 0, vege: 0, coffee: 0, alco: 0 });
+        
+        const n = last7.length;
+        
+        setWeeklySummary({
+          days: n,
+          sleep: sum.sleep / n,
+          mood: sum.mood / n,
+          health: sum.health / n,
+          activity: sum.activity / n,
+          vege: Math.round(sum.vege / n),
+          coffee: sum.coffee / n,
+          alco: sum.alco / n
+        });
+        
+        // Получаем ИИ-рекомендации
+        const aiAdvice = await window.getAIRecommendations(last7);
+        setWeeklyAdvice(aiAdvice);
+      };
+
+      // Определение цвета метрики
+      const getMetricColor = (value, type) => {
+        if (type === 'sleep' || type === 'mood' || type === 'health') {
+          if (value >= 1) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+          if (value >= 0) return 'text-amber-600 bg-amber-50 border-amber-200';
+          return 'text-rose-600 bg-rose-50 border-rose-200';
+        }
+        if (type === 'activity') {
+          if (value >= 2.5) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+          if (value >= 1.5) return 'text-amber-600 bg-amber-50 border-amber-200';
+          return 'text-rose-600 bg-rose-50 border-rose-200';
+        }
+        if (type === 'vege') {
+          if (value >= 50) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+          if (value >= 30) return 'text-amber-600 bg-amber-50 border-amber-200';
+          return 'text-rose-600 bg-rose-50 border-rose-200';
+        }
+        if (type === 'coffee') {
+          if (value <= 2) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+          if (value <= 3) return 'text-amber-600 bg-amber-50 border-amber-200';
+          return 'text-rose-600 bg-rose-50 border-rose-200';
+        }
+        return 'text-slate-600 bg-slate-50 border-slate-200';
+      };
+
+      // Функции рисования графиков
+      const drawHealth = () => {
+        const ctx = refHealth.current?.getContext('2d');
+        if (!ctx || !entries.length) return;
+        
+        const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        if (window.chartHealth) window.chartHealth.destroy();
+        window.chartHealth = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: sortedEntries.map(e => e.date.slice(5).replace('-', '.')),
+            datasets: [
+              { 
+                label: 'Сон', 
+                data: sortedEntries.map(e => e.sleep), 
+                borderColor: '#3b82f6', 
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                fill: false, 
+                tension: 0.3,
+                pointRadius: 6,
+                pointHoverRadius: 8
+              },
+              { 
+                label: 'Настроение', 
+                data: sortedEntries.map(e => e.mood), 
+                borderColor: '#10b981', 
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: false, 
+                tension: 0.3,
+                pointRadius: 6,
+                pointHoverRadius: 8
+              },
+              { 
+                label: 'Здоровье', 
+                data: sortedEntries.map(e => e.health), 
+                borderColor: '#8b5cf6', 
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                fill: false, 
+                tension: 0.3,
+                pointRadius: 6,
+                pointHoverRadius: 8
+              }
+            ]
+          },
+          options: { 
+            responsive: true, 
+            maintainAspectRatio: false,
+            interaction: {
+              intersect: false,
+              mode: 'index'
+            },
+            plugins: {
+              legend: {
+                labels: {
+                  usePointStyle: true,
+                  pointStyle: 'circle',
+                  padding: 20,
+                  font: { size: 12, weight: 'bold' }
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  title: function(context) {
+                    const entry = sortedEntries[context[0].dataIndex];
+                    return entry.date;
+                  },
+                  afterLabel: function(context) {
+                    const entry = sortedEntries[context.dataIndex];
+                    if (context.dataset.label === 'Сон') return 'Сон: ' + window.sleepToText(entry.sleep);
+                    if (context.dataset.label === 'Настроение') return 'Настроение: ' + window.moodToText(entry.mood);
+                    if (context.dataset.label === 'Здоровье') return 'Здоровье: ' + window.healthToText(entry.health);
+                    return '';
+                  }
+                }
+              }
+            },
+            scales: { 
+              x: {
+                grid: { display: false }
+              },
+              y: { 
+                min: -2.2, 
+                max: 2.2,
+                grid: { 
+                  display: true,
+                  color: function(context) {
+                    return context.tick.value === 0 ? '#64748b' : '#e2e8f0';
+                  },
+                  lineWidth: function(context) {
+                    return context.tick.value === 0 ? 2 : 1;
+                  }
+                },
+                ticks: { 
+                  stepSize: 1,
+                  callback: function(value) {
+                    const emojiLabels = {
+                      '-2': '👎👎',
+                      '-1': '👎',
+                      '0': '👌', 
+                      '1': '👍',
+                      '2': '👍👍'
+                    };
+                    return emojiLabels[value.toString()] || '';
+                  }
+                }
+              } 
+            }
+          }
+        });
+      };
+
+      const drawActivity = () => {
+        const ctx = refActivity.current?.getContext('2d');
+        if (!ctx || !entries.length) return;
+        
+        const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        if (window.chartAct) window.chartAct.destroy();
+        window.chartAct = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: sortedEntries.map(e => e.date.slice(5).replace('-', '.')),
+            datasets: [{
+              label: 'Активность',
+              data: sortedEntries.map(e => e.activity),
+              backgroundColor: sortedEntries.map(e =>
+                e.activity === 0 ? '#94a3b8' :
+                e.activity === 1 ? '#10b981' :
+                e.activity === 2 ? '#3b82f6' :
+                e.activity === 3 ? '#f59e0b' : '#ef4444'
+              ),
+              borderRadius: 2,
+              borderSkipped: false,
+              borderWidth: 0,
+              barPercentage: 0.7,
+              categoryPercentage: 0.8
+            }]
+          },
+          options: { 
+            responsive: true, 
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  title: function(context) {
+                    const entry = sortedEntries[context[0].dataIndex];
+                    return entry.date;
+                  },
+                  label: function(context) {
+                    const entry = sortedEntries[context.dataIndex];
+                    return 'Активность: ' + window.activityToText(entry.activity);
+                  }
+                }
+              }
+            },
+            scales: { 
+              x: {
+                grid: { display: false }
+              },
+              y: { 
+                min: 0, 
+                max: 4, 
+                grid: { display: true, color: '#e2e8f0' },
+                ticks: { 
+                  stepSize: 1,
+                  callback: function(value) {
+                    const labels = {
+                      '0': 'Отдых',
+                      '1': 'Легкая',
+                      '2': 'Умеренная',
+                      '3': 'Интенсивная',
+                      '4': 'Максимальная'
+                    };
+                    return labels[value.toString()] || '';
+                  }
+                }
+              } 
+            }
+          }
+        });
+      };
+
+      const drawCalories = () => {
+        if (!refCalories.current || !entries.length) return;
+        
+        const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const dates = sortedEntries.map(e => e.date.slice(5).replace('-', '.'));
+        const centers = sortedEntries.map(e => (e.calMin + e.calMax) / 2);
+        const errUp = sortedEntries.map(e => e.calMax - (e.calMin + e.calMax) / 2);
+        const errDn = sortedEntries.map(e => (e.calMin + e.calMax) / 2 - e.calMin);
+        const colors = sortedEntries.map(e => e.vege >= 50 ? '#10b981' : e.vege >= 30 ? '#f59e0b' : '#ef4444');
+        
+        let targetCalories = calorieNorm;
+        let goalText = '';
+        let shapeColor = '';
+        
+        if (calorieGoal === 'lose')
