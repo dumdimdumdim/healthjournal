@@ -22,12 +22,107 @@
 <body class="bg-gray-50 min-h-screen p-4">
   <div id="root"></div>
 
+  <!-- Подключаем тестовые данные -->
+  <script>
+    // Генератор тестовых данных (встроенный)
+    function randomBetween(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function getDateDaysAgo(daysAgo) {
+      const date = new Date();
+      date.setDate(date.getDate() - daysAgo);
+      return date.toISOString().split('T')[0];
+    }
+
+    const dayDescriptions = [
+      "хорошо выспался, позавтракал овсянкой с фруктами, пошел пешком на работу 2 км, выпил 2 кофе, на обед салат с курицей, вечером йога 30 минут, настроение отличное",
+      "плохо спал всю ночь, болела голова, завтрак пропустил, выпил много кофе - 4 чашки, на обед только пельмени, после работы сразу домой, настроение паршивое",
+      "проснулся бодрым, сделал зарядку, позавтракал яичницей с овощами, прошел пешком 3 км, выпил кофе утром, обедал борщом и салатом, вечером плавал в бассейне час, хорошее настроение",
+      "спал нормально, завтрак - творог с ягодами, ехал на автобусе, 2 кофе за день, обед в кафе - паста с овощами, вечером встреча с друзьями, выпили пару бокалов вина, весело",
+      "встал рано, чувствую себя отлично, завтрак дома - каша с фруктами, пробежка 5 км утром, один кофе, обед - рыба с овощами, вечером тренировка в зале, энергии полно",
+      "поздно лег, плохо выспался, завтрак на бегу - бутерброд, много кофе - 3 чашки, обед - фастфуд, вечером лежал на диване, грустное настроение, голова болит",
+      "выспался хорошо, утренняя прогулка с собакой 2 км, завтрак - омлет с зеленью, кофе с утра, обед дома - суп и салат, вечером читал книгу, спокойное настроение",
+      "бессонная ночь, встал разбитым, пропустил завтрак, выпил кофе на ходу, обед - доставка пиццы, после работы сразу спать, ужасное самочувствие весь день",
+      "отлично спал 8 часов, зарядка дома, завтрак - каша с орехами, велосипед до работы 4 км, кофе в офисе, обед - курица с овощами, вечером прогулка в парке, отличное настроение",
+      "спал беспокойно, проснулся уставшим, завтрак легкий - йогурт, пешком немного, 2 кофе, обед простой - гречка с мясом, вечером фильм дома, настроение так себе",
+      "выходной! спал до обеда, поздний завтрак - блины с вареньем, прогулка в центре города, кофе в кафе, ужин в ресторане с салатами, выпил бокал вина, расслабленное настроение",
+      "рано встал, чувствую легкую простуду, завтрак не лез, горячий чай вместо кофе, обед легкий - суп, весь день дома, рано лег спать, болезненное состояние"
+    ];
+
+    function generateHealthEntry(daysAgo) {
+      const originalText = dayDescriptions[randomBetween(0, dayDescriptions.length - 1)];
+      const lowerText = originalText.toLowerCase();
+      
+      let sleep = 0;
+      if (lowerText.includes('плохо спал') || lowerText.includes('бессонная') || lowerText.includes('беспокойно')) sleep = -1;
+      if (lowerText.includes('хорошо спал') || lowerText.includes('отлично спал') || lowerText.includes('выспался')) sleep = 1;
+      if (lowerText.includes('до обеда')) sleep = 2;
+      
+      let mood = 0;
+      if (lowerText.includes('паршивое') || lowerText.includes('ужасное') || lowerText.includes('грустное')) mood = -1;
+      if (lowerText.includes('отличное') || lowerText.includes('хорошее') || lowerText.includes('весело')) mood = 1;
+      
+      let health = 0;
+      if (lowerText.includes('болела голова') || lowerText.includes('простуда') || lowerText.includes('болезненное')) health = -1;
+      if (lowerText.includes('отлично') || lowerText.includes('энергии полно') || lowerText.includes('бодрым')) health = 1;
+      
+      let activity = 1;
+      if (lowerText.includes('лежал') || (lowerText.includes('дома') && !lowerText.includes('зарядка'))) activity = 0;
+      if (lowerText.includes('пробежка') || lowerText.includes('плавал') || lowerText.includes('велосипед')) activity = 2;
+      if (lowerText.includes('тренировка') || lowerText.includes('йога') || lowerText.includes('зале')) activity = 3;
+      
+      let coffee = 1;
+      if (lowerText.includes('много кофе') || lowerText.includes('4 кофе') || lowerText.includes('4 чашки')) coffee = 4;
+      else if (lowerText.includes('3 кофе')) coffee = 3;
+      else if (lowerText.includes('2 кофе')) coffee = 2;
+      else if (lowerText.includes('чай') && !lowerText.includes('кофе')) coffee = 0;
+      
+      let alco = 0;
+      if (lowerText.includes('вино') || lowerText.includes('бокал')) alco = randomBetween(1, 2);
+      
+      let vege = 30;
+      if (lowerText.includes('салат') || lowerText.includes('овощ')) vege += 30;
+      if (lowerText.includes('фрукт') || lowerText.includes('ягод')) vege += 20;
+      if (lowerText.includes('фастфуд') || lowerText.includes('пицца')) vege -= 10;
+      vege = Math.max(10, Math.min(100, vege));
+      
+      let baseCalories = 2000;
+      if (lowerText.includes('пропустил завтрак') || lowerText.includes('легкий')) baseCalories -= 300;
+      if (lowerText.includes('сытный') || lowerText.includes('ресторан')) baseCalories += 400;
+      if (activity >= 2) baseCalories += 200;
+      
+      const calMin = baseCalories - randomBetween(200, 400);
+      const calMax = baseCalories + randomBetween(200, 600);
+      
+      const sleepDesc = sleep === -1 ? 'плохо спал' : sleep === 1 ? 'хорошо спал' : 'обычный сон';
+      const moodDesc = mood === -1 ? 'плохое настроение' : mood === 1 ? 'хорошее настроение' : 'нейтральное настроение';
+      const activityDesc = ['отдыхал', 'легкая активность', 'умеренная активность', 'тренировки', 'интенсивные тренировки'][activity];
+      const summary = `${sleepDesc}, ${moodDesc}, ${activityDesc}`;
+      
+      return {
+        date: getDateDaysAgo(daysAgo),
+        sleep, mood, health, activity,
+        calMin, calMax, vege, coffee, alco,
+        summary, original: originalText
+      };
+    }
+
+    function generateTestData(days = 14) {
+      const entries = [];
+      for (let i = 1; i <= days; i++) {
+        entries.push(generateHealthEntry(i));
+      }
+      return entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+    }
+  </script>
+
   <script type="text/babel">
   const { useState, useEffect, useRef } = React;
 
   function HealthTracker() {
     // Жёстко закодированный профиль
-    const user = { weight:98, height:178, age:30, name:'Пользователь' };
+    const user = { weight:75, height:175, age:28, name:'Тестовый пользователь' };
     const bmr = 88.362 + 13.397 * user.weight + 4.799 * user.height - 5.677 * user.age;
     const calorieNorm = Math.round(bmr * 1.55);
 
@@ -37,102 +132,102 @@
     const [entries, setEntries] = useState([]);
     const [weeklySummary, setWeeklySummary] = useState('');
     const [weeklyAdvice, setWeeklyAdvice] = useState('');
-    const [errorMessage, setErrorMessage] = useState('');
+    const [showTestDataButton, setShowTestDataButton] = useState(true);
 
     // Рефы для холстов
     const refHealth = useRef();
     const refActivity = useRef();
     const refCalories = useRef();
 
+    // Загружаем тестовые данные при старте (если нет данных)
+    useEffect(() => {
+      const savedEntries = localStorage.getItem('healthEntries');
+      if (savedEntries) {
+        setEntries(JSON.parse(savedEntries));
+        setShowTestDataButton(false);
+      }
+    }, []);
+
+    // Сохраняем данные в localStorage при изменении
+    useEffect(() => {
+      if (entries.length > 0) {
+        localStorage.setItem('healthEntries', JSON.stringify(entries));
+        drawHealth();
+        drawActivity();
+        drawCalories();
+        updateWeekly();
+      }
+    }, [entries]);
+
+    // Загружаем тестовые данные
+    const loadTestData = () => {
+      const testData = generateTestData(14);
+      setEntries(testData);
+      setShowTestDataButton(false);
+      console.log('Загружено тестовых записей:', testData.length);
+    };
+
+    // Очищаем все данные
+    const clearAllData = () => {
+      if (confirm('Удалить все данные?')) {
+        setEntries([]);
+        localStorage.removeItem('healthEntries');
+        setShowTestDataButton(true);
+        setWeeklySummary('');
+        setWeeklyAdvice('');
+      }
+    };
+
+    // Добавляем случайную запись за сегодня
+    const addRandomEntry = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const existing = entries.find(e => e.date === today);
+      
+      if (existing && !confirm('Запись за сегодня уже есть. Заменить?')) {
+        return;
+      }
+      
+      const randomEntry = generateHealthEntry(0); // за сегодня
+      setEntries(prev => {
+        const filtered = prev.filter(e => e.date !== today);
+        return [randomEntry, ...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
+      });
+    };
+
     // Хэлпер для вызова нашей serverless-функции
     async function analyzeWithProxy(dayText) {
-      console.log('Sending request to /api/analyze with text:', dayText);
-      
       const res = await fetch('/api/analyze', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
         body:JSON.stringify({ text: dayText })
       });
       
-      console.log('Response status:', res.status);
-      console.log('Response ok:', res.ok);
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error('API Error:', res.status, errorText);
-        throw new Error(`API Error: ${res.status} - ${errorText}`);
-      }
-      
-      const result = await res.json();
-      console.log('API Result:', result);
-      return result;
+      if (!res.ok) throw new Error(`API Error: ${res.status}`);
+      return res.json();
     }
 
-    // При добавлении новой записи — обновляем списки и графики
-    useEffect(()=>{
-      if (!entries.length) return;
-      drawHealth();
-      drawActivity();
-      drawCalories();
-      updateWeekly();
-    }, [entries]);
-
-    // Добавить сегодня
+    // Добавить сегодня через анализ
     const handleAnalyze = async () => {
       if (!text.trim()) {
-        setErrorMessage('Пожалуйста, опишите свой день');
+        alert('Опишите день.');
         return;
       }
       
       setLoading(true);
-      setErrorMessage('');
-      
       try {
         const today = new Date().toISOString().split('T')[0];
-        console.log('Analyzing text for date:', today);
-        
         const metrics = await analyzeWithProxy(text);
-        console.log('Received metrics:', metrics);
         
-        setEntries(prev=>[...prev, { date: today, ...metrics }]);
+        setEntries(prev => {
+          const filtered = prev.filter(e => e.date !== today);
+          return [{ date: today, ...metrics }, ...filtered]
+            .sort((a, b) => new Date(b.date) - new Date(a.date));
+        });
+        
         setText('');
-        setErrorMessage('');
-        
       } catch(err) {
-        console.error('Analysis error:', err);
-        setErrorMessage(`Ошибка анализа: ${err.message}`);
-        
-        // Добавляем запись с дефолтными значениями
-        const today = new Date().toISOString().split('T')[0];
-        const defaultMetrics = {
-          sleep: 0, mood: 0, health: 0, activity: 1,
-          calMin: 1800, calMax: 2200, vege: 30,
-          coffee: 1, alco: 0,
-          summary: "Ошибка анализа - использованы стандартные значения",
-          original: text
-        };
-        
-        setEntries(prev=>[...prev, { date: today, ...defaultMetrics }]);
-        setText('');
-        
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Функция для тестирования API
-    const testAPI = async () => {
-      setLoading(true);
-      setErrorMessage('');
-      
-      try {
-        console.log('Testing API...');
-        const testResult = await analyzeWithProxy('Тестовый запрос: хорошо спал, ел овощи, пил кофе');
-        console.log('Test successful:', testResult);
-        setErrorMessage('✅ API работает! Результат теста: ' + JSON.stringify(testResult));
-      } catch (err) {
-        console.error('API test failed:', err);
-        setErrorMessage('❌ Тест API не прошел: ' + err.message);
+        console.error(err);
+        alert('Ошибка анализа: ' + err.message);
       } finally {
         setLoading(false);
       }
@@ -141,17 +236,19 @@
     // Рисуем самочувствие
     function drawHealth(){
       const ctx = refHealth.current?.getContext('2d');
-      if (!ctx) return;
+      if (!ctx || !entries.length) return;
+      
+      const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
       
       if (window.chartHealth) window.chartHealth.destroy();
       window.chartHealth = new Chart(ctx, {
         type:'line',
         data:{
-          labels: entries.map(e=>e.date.slice(5).replace('-','.')),
+          labels: sortedEntries.map(e=>e.date.slice(5).replace('-','.')),
           datasets:[
-            { label:'Сон', data:entries.map(e=>e.sleep), borderColor:'#3b82f6', fill:false, tension:0.3 },
-            { label:'Настроение', data:entries.map(e=>e.mood), borderColor:'#22c55e', fill:false, tension:0.3 },
-            { label:'Здоровье', data:entries.map(e=>e.health), borderColor:'#a855f7', fill:false, tension:0.3 }
+            { label:'Сон', data:sortedEntries.map(e=>e.sleep), borderColor:'#3b82f6', fill:false, tension:0.3 },
+            { label:'Настроение', data:sortedEntries.map(e=>e.mood), borderColor:'#22c55e', fill:false, tension:0.3 },
+            { label:'Здоровье', data:sortedEntries.map(e=>e.health), borderColor:'#a855f7', fill:false, tension:0.3 }
           ]
         },
         options:{ responsive:true, maintainAspectRatio:false,
@@ -163,17 +260,19 @@
     // Рисуем активность
     function drawActivity(){
       const ctx = refActivity.current?.getContext('2d');
-      if (!ctx) return;
+      if (!ctx || !entries.length) return;
+      
+      const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
       
       if (window.chartAct) window.chartAct.destroy();
       window.chartAct = new Chart(ctx, {
         type:'bar',
         data:{
-          labels: entries.map(e=>e.date.slice(5).replace('-','.')),
+          labels: sortedEntries.map(e=>e.date.slice(5).replace('-','.')),
           datasets:[{
             label:'Активность',
-            data: entries.map(e=>e.activity),
-            backgroundColor: entries.map(e=>
+            data: sortedEntries.map(e=>e.activity),
+            backgroundColor: sortedEntries.map(e=>
               e.activity===0?'#9ca3af':
               e.activity===1?'#22c55e':
               e.activity===2?'#3b82f6':
@@ -189,13 +288,14 @@
 
     // Рисуем питание/калории
     function drawCalories(){
-      if (!refCalories.current) return;
+      if (!refCalories.current || !entries.length) return;
       
-      const dates = entries.map(e=>e.date.slice(5).replace('-','.'));
-      const centers = entries.map(e=>(e.calMin+e.calMax)/2);
-      const errUp = entries.map(e=>e.calMax - (e.calMin+e.calMax)/2);
-      const errDn = entries.map(e=> (e.calMin+e.calMax)/2 - e.calMin);
-      const colors = entries.map(e=> e.vege>=50?'#22c55e': e.vege>=30?'#f59e0b':'#ef4444');
+      const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
+      const dates = sortedEntries.map(e=>e.date.slice(5).replace('-','.'));
+      const centers = sortedEntries.map(e=>(e.calMin+e.calMax)/2);
+      const errUp = sortedEntries.map(e=>e.calMax - (e.calMin+e.calMax)/2);
+      const errDn = sortedEntries.map(e=> (e.calMin+e.calMax)/2 - e.calMin);
+      const colors = sortedEntries.map(e=> e.vege>=50?'#22c55e': e.vege>=30?'#f59e0b':'#ef4444');
       const normMin = calorieNorm * 0.85, normMax = calorieNorm * 1.15;
       const shape = [{
         type:'rect', xref:'paper', yref:'y',
@@ -207,7 +307,7 @@
         x: dates, y: centers, mode:'markers',
         marker:{ color:colors, size:12 },
         error_y:{ type:'data', array:errUp, arrayminus:errDn, thickness:2, width:6 },
-        customdata: entries.map(e=>[e.vege,e.coffee,e.alco]),
+        customdata: sortedEntries.map(e=>[e.vege,e.coffee,e.alco]),
         hovertemplate:
           `<b>%{x}</b><br>`+
           `Калории: %{y-error_y.arrayminus:.0f}–%{y+error_y.array:.0f} ккал<br>`+
@@ -229,7 +329,7 @@
 
     // Еженедельное резюме и совет
     function updateWeekly(){
-      const last7 = entries.slice(-7);
+      const last7 = entries.slice(0, 7);
       if (last7.length<1) return;
       const sum = last7.reduce((a,e)=>{
         a.sleep += e.sleep; a.mood += e.mood; a.health += e.health;
@@ -239,14 +339,24 @@
       },{sleep:0,mood:0,health:0,activity:0,vege:0,coffee:0,alco:0});
       const n = last7.length;
       setWeeklySummary(
-        `Итоги недели: сон ${(sum.sleep/n).toFixed(1)}, `+
+        `Итоги за ${n} дней: сон ${(sum.sleep/n).toFixed(1)}, `+
         `настроение ${(sum.mood/n).toFixed(1)}, `+
         `здоровье ${(sum.health/n).toFixed(1)}, `+
         `активность ${(sum.activity/n).toFixed(1)}, `+
         `овощи ${Math.round(sum.vege/n)}%, `+
         `☕ ${(sum.coffee/n).toFixed(1)}, 🍺 ${(sum.alco/n).toFixed(1)}`
       );
-      setWeeklyAdvice('Продолжайте в том же духе, добавьте больше овощей.');
+      
+      // Простые рекомендации на основе данных
+      let advice = '';
+      if (sum.sleep/n < -0.5) advice += 'Стоит улучшить качество сна. ';
+      if (sum.mood/n < 0) advice += 'Попробуйте больше активностей для настроения. ';
+      if (sum.activity/n < 1.5) advice += 'Добавьте физической активности. ';
+      if (sum.vege/n < 40) advice += 'Включите больше овощей в рацион. ';
+      if (sum.coffee/n > 3) advice += 'Возможно, стоит ограничить кофе. ';
+      if (!advice) advice = 'Отличные показатели! Продолжайте в том же духе! 🎉';
+      
+      setWeeklyAdvice(advice);
     }
 
     return (
@@ -256,35 +366,52 @@
           <p className="text-gray-600">
             {user.name}, {user.height} см, {user.weight} кг — норма {calorieNorm} ккал/день
           </p>
+          <p className="text-sm text-blue-600 mt-1">
+            📊 Записей в системе: {entries.length}
+          </p>
         </header>
 
-        {/* Панель отладки */}
-        <section className="bg-yellow-50 border border-yellow-200 p-4 rounded">
-          <h3 className="font-semibold mb-2">🔧 Отладка API</h3>
-          <button
-            onClick={testAPI}
-            disabled={loading}
-            className="px-4 py-2 bg-yellow-600 text-white rounded disabled:bg-gray-400 mr-2"
-          >
-            {loading ? 'Тестирую...' : 'Тест API'}
-          </button>
-          {errorMessage && (
-            <div className={`mt-2 p-2 rounded ${
-              errorMessage.includes('✅') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-            }`}>
-              {errorMessage}
-            </div>
-          )}
+        {/* Панель управления тестовыми данными */}
+        <section className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 p-4 rounded-lg">
+          <h3 className="font-semibold mb-3 text-blue-800">🎲 Управление данными</h3>
+          <div className="flex flex-wrap gap-2">
+            {showTestDataButton && (
+              <button
+                onClick={loadTestData}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                📊 Загрузить тестовые данные (14 дней)
+              </button>
+            )}
+            <button
+              onClick={addRandomEntry}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            >
+              🎯 Добавить случайную запись за сегодня
+            </button>
+            <button
+              onClick={clearAllData}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              🗑️ Очистить все данные
+            </button>
+          </div>
+          <p className="text-sm text-gray-600 mt-2">
+            💡 Тестовые данные помогают проверить графики и аналитику без ручного ввода
+          </p>
         </section>
 
         {!!weeklySummary && (
           <section className="bg-white p-4 rounded shadow">
-            <p className="font-medium">{weeklySummary}</p>
-            <p className="mt-2 text-blue-700 bg-blue-50 p-2 rounded">{weeklyAdvice}</p>
+            <p className="font-medium text-lg">{weeklySummary}</p>
+            <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border-l-4 border-blue-400">
+              <p className="text-blue-800">💡 <strong>Рекомендации:</strong> {weeklyAdvice}</p>
+            </div>
           </section>
         )}
 
         <section className="bg-white p-4 rounded shadow">
+          <h3 className="font-semibold mb-2">✍️ Добавить новую запись</h3>
           <textarea
             className="w-full border p-2 rounded mb-2"
             rows={4}
@@ -298,7 +425,7 @@
             disabled={loading || !text.trim()}
             className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
           >
-            {loading ? 'Анализирую…' : 'Анализировать день'}
+            {loading ? 'Анализирую…' : '🤖 Анализировать с помощью ИИ'}
           </button>
         </section>
 
@@ -306,11 +433,11 @@
           <>
             <div className="grid lg:grid-cols-2 gap-6">
               <div className="bg-white p-4 rounded shadow">
-                <h3 className="font-semibold mb-2">📈 Самочувствие</h3>
+                <h3 className="font-semibold mb-2">📈 Самочувствие по дням</h3>
                 <div className="chart-container"><canvas ref={refHealth}></canvas></div>
               </div>
               <div className="bg-white p-4 rounded shadow">
-                <h3 className="font-semibold mb-2">🏃 Активность</h3>
+                <h3 className="font-semibold mb-2">🏃 Уровень активности</h3>
                 <div className="chart-container"><canvas ref={refActivity}></canvas></div>
               </div>
             </div>
@@ -318,20 +445,31 @@
             <div className="bg-white p-4 rounded shadow">
               <h3 className="font-semibold mb-2">🍎 Питание и калории</h3>
               <div ref={refCalories} className="chart-container"></div>
+              <div className="mt-3 text-sm text-gray-600">
+                <div className="flex flex-wrap gap-4">
+                  <span>🟢 Зеленый: >50% овощей</span>
+                  <span>🟡 Желтый: 30-50% овощей</span>
+                  <span>🔴 Красный: <30% овощей</span>
+                  <span>📊 Зеленая зона: норма калорий ±15%</span>
+                </div>
+              </div>
             </div>
           </>
         )}
 
         <section className="bg-white p-4 rounded shadow">
-          <h3 className="font-semibold mb-3">📚 История последних 7 дней</h3>
+          <h3 className="font-semibold mb-3">📚 История записей</h3>
           {entries.length === 0 ? (
-            <p className="text-gray-500 italic">Пока нет записей. Добавьте первую запись выше!</p>
+            <div className="text-center py-8">
+              <p className="text-gray-500 italic text-lg">📝 Пока нет записей</p>
+              <p className="text-gray-400 mt-2">Загрузите тестовые данные или добавьте первую запись!</p>
+            </div>
           ) : (
             <div className="space-y-4">
-              {entries.slice(-7).reverse().map((e,i)=>(
-                <div key={i} className="border p-3 rounded">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">
+              {entries.slice(0, 10).map((e,i)=>(
+                <div key={i} className="border p-4 rounded-lg hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-lg">
                       {new Date(e.date).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'})}
                     </span>
                     <div className="flex space-x-1 text-xl">
@@ -339,17 +477,52 @@
                       {[...Array(Math.min(e.alco || 0, 5))].map((_,j)=><span key={j}>🍺</span>)}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm mt-2">
-                    <div>Сон: {e.sleep>0?'+':''}{e.sleep}</div>
-                    <div>Настроение: {e.mood>0?'+':''}{e.mood}</div>
-                    <div>Здоровье: {e.health>0?'+':''}{e.health}</div>
-                    <div>Активность: {['💤','🚶','🏃','🏋️','🔥'][e.activity] || '❓'}</div>
-                    <div>Калории: {e.calMin}–{e.calMax}</div>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm mb-3">
+                    <div className="flex items-center">
+                      <span className="mr-2">😴</span>
+                      <span>Сон: {e.sleep>0?'+':''}{e.sleep}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="mr-2">😊</span>
+                      <span>Настроение: {e.mood>0?'+':''}{e.mood}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="mr-2">❤️</span>
+                      <span>Здоровье: {e.health>0?'+':''}{e.health}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="mr-2">{['💤','🚶','🏃','🏋️','🔥'][e.activity] || '❓'}</span>
+                      <span>Активность: {e.activity}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="mr-2">🍽️</span>
+                      <span>{e.calMin}–{e.calMax} ккал</span>
+                    </div>
                   </div>
-                  <p className="italic mt-2 text-gray-600">"{e.summary}"</p>
-                  <p className="mt-1 text-gray-500 text-xs">{e.original}</p>
+                  <div className="mb-2">
+                    <span className="text-sm text-gray-500">🥗 Овощи: </span>
+                    <span className={`font-medium ${e.vege >= 50 ? 'text-green-600' : e.vege >= 30 ? 'text-yellow-600' : 'text-red-600'}`}>
+                      {e.vege}%
+                    </span>
+                  </div>
+                  <p className="italic text-gray-600 bg-gray-50 p-2 rounded">
+                    "{e.summary}"
+                  </p>
+                  <details className="mt-2">
+                    <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">
+                      Показать оригинальный текст
+                    </summary>
+                    <p className="text-xs text-gray-500 mt-1 bg-gray-50 p-2 rounded">
+                      {e.original}
+                    </p>
+                  </details>
                 </div>
               ))}
+              {entries.length > 10 && (
+                <p className="text-center text-gray-500 italic">
+                  И еще {entries.length - 10} записей...
+                </p>
+              )}
             </div>
           )}
         </section>
