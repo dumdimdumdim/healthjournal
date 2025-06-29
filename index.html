@@ -64,6 +64,35 @@
       return value.toString();
     }
 
+    // Функция для получения рекомендаций от ИИ
+    async function getAIRecommendations(entries) {
+      if (!entries.length) return 'Недостаточно данных для анализа';
+      
+      const last7 = entries.slice(0, 7);
+      const summaries = last7.map(e => `${e.date}: ${e.summary || e.original}`).join('\n');
+      
+      const prompt = `Проанализируй мой образ жизни за последние ${last7.length} дней и дай краткую рекомендацию (максимум 2 предложения):
+
+${summaries}
+
+Ответь только рекомендацией, без пояснений.`;
+
+      try {
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: prompt, mode: 'recommendation' })
+        });
+        
+        if (!response.ok) throw new Error('API Error');
+        const result = await response.json();
+        return result.summary || result.recommendation || 'Продолжайте следить за своим здоровьем!';
+      } catch (error) {
+        console.error('Ошибка получения рекомендаций:', error);
+        return 'Продолжайте следить за своим здоровьем!';
+      }
+    }
+
     // Тестовые описания дней
     const dayDescriptions = [
       "хорошо выспался, позавтракал овсянкой с фруктами, пошел пешком на работу 2 км, выпил 2 кофе, на обед салат с курицей, вечером йога 30 минут, настроение отличное",
@@ -99,12 +128,25 @@
       let alco = 0;
       if (lowerText.includes('вино') || lowerText.includes('бокал')) alco = randomBetween(1, 2);
       
-      let vege = 30;
-      if (lowerText.includes('салат') || lowerText.includes('овощ')) vege += 30;
-      vege = Math.max(10, Math.min(100, vege));
+      // Исправленный алгоритм овощей - более реалистичный
+      let vege = 15; // Базовое значение снижено
+      if (lowerText.includes('салат')) vege += 20;
+      if (lowerText.includes('овощ')) vege += 15;
+      if (lowerText.includes('фрукт')) vege += 10;
+      if (lowerText.includes('борщ')) vege += 5; // Борщ содержит овощи, но не так много
+      vege = Math.max(5, Math.min(80, vege)); // Максимум снижен до 80%
       
-      const calMin = 1600 + randomBetween(0, 400);
-      const calMax = calMin + randomBetween(200, 600);
+      // Исправленный алгоритм калорий с учетом алкоголя и кофе
+      let baseCalories = 1400 + randomBetween(0, 300); // Базовые калории от еды
+      
+      // Добавляем калории от кофе (примерно 5 ккал за чашку черного кофе)
+      const coffeeCalories = coffee * 5;
+      
+      // Добавляем калории от алкоголя (примерно 120 ккал за бокал вина)
+      const alcoCalories = alco * 120;
+      
+      const calMin = baseCalories + coffeeCalories + alcoCalories;
+      const calMax = calMin + randomBetween(150, 400); // Разброс уменьшен
       
       const summary = sleep === -1 ? 'плохо спал' : sleep === 1 ? 'хорошо спал' : 'обычный день';
       
@@ -163,6 +205,7 @@
     window.activityToText = activityToText;
     window.getMetricText = getMetricText;
     window.callGroqAPI = callGroqAPI;
+    window.getAIRecommendations = getAIRecommendations;
   </script>
 
   <script type="text/babel">
@@ -170,7 +213,7 @@
 
     function HealthTracker() {
       // Основные настройки
-      const user = { weight: 75, height: 175, age: 28, name: 'Тестовый пользователь' };
+      const user = { weight: 98, height: 178, age: 28, name: 'Тестовый пользователь' };
       const bmr = 88.362 + 13.397 * user.weight + 4.799 * user.height - 5.677 * user.age;
       const calorieNorm = Math.round(bmr * 1.375);
 
@@ -182,11 +225,12 @@
       const [weeklyAdvice, setWeeklyAdvice] = useState('');
       const [showTestDataButton, setShowTestDataButton] = useState(true);
       const [calorieGoal, setCalorieGoal] = useState('maintain');
-      const [selectedDate, setSelectedDate] = useState('');
+      const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // Сегодня по умолчанию
       const [editingEntry, setEditingEntry] = useState(null);
       const [isEditing, setIsEditing] = useState(false);
       const [showDataPanel, setShowDataPanel] = useState(false);
       const [apiError, setApiError] = useState('');
+      const [expandedEntries, setExpandedEntries] = useState(new Set());
 
       // Refs для графиков
       const refHealth = useRef();
@@ -292,7 +336,7 @@
 
       // Отмена редактирования
       const handleCancelEdit = () => {
-        setSelectedDate('');
+        setSelectedDate(new Date().toISOString().split('T')[0]); // Возвращаем к сегодня
         setEditingEntry(null);
         setText('');
         setIsEditing(false);
@@ -345,7 +389,7 @@
       };
 
       // Обновление еженедельной сводки
-      const updateWeekly = () => {
+      const updateWeekly = async () => {
         const last7 = entries.slice(0, 7);
         if (last7.length < 1) return;
         
@@ -369,15 +413,9 @@
           alco: sum.alco / n
         });
         
-        let advice = '';
-        if (sum.sleep / n < -0.5) advice += 'Стоит улучшить качество сна. ';
-        if (sum.mood / n < 0) advice += 'Попробуйте больше активностей для настроения. ';
-        if (sum.activity / n < 1.5) advice += 'Добавьте физической активности. ';
-        if (sum.vege / n < 40) advice += 'Включите больше овощей в рацион. ';
-        if (sum.coffee / n > 3) advice += 'Возможно, стоит ограничить кофе. ';
-        if (!advice) advice = 'Отличные показатели! Продолжайте в том же духе! 🎉';
-        
-        setWeeklyAdvice(advice);
+        // Получаем ИИ-рекомендации
+        const aiAdvice = await window.getAIRecommendations(last7);
+        setWeeklyAdvice(aiAdvice);
       };
 
       // Определение цвета метрики
@@ -424,7 +462,9 @@
                 borderColor: '#3b82f6', 
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                 fill: false, 
-                tension: 0.3 
+                tension: 0.3,
+                pointRadius: 6,
+                pointHoverRadius: 8
               },
               { 
                 label: 'Настроение', 
@@ -432,7 +472,9 @@
                 borderColor: '#10b981', 
                 backgroundColor: 'rgba(16, 185, 129, 0.1)',
                 fill: false, 
-                tension: 0.3 
+                tension: 0.3,
+                pointRadius: 6,
+                pointHoverRadius: 8
               },
               { 
                 label: 'Здоровье', 
@@ -440,35 +482,34 @@
                 borderColor: '#8b5cf6', 
                 backgroundColor: 'rgba(139, 92, 246, 0.1)',
                 fill: false, 
-                tension: 0.3 
+                tension: 0.3,
+                pointRadius: 6,
+                pointHoverRadius: 8
               }
             ]
           },
           options: { 
             responsive: true, 
             maintainAspectRatio: false,
-            scales: { 
-              y: { 
-                min: -2, 
-                max: 2, 
-                ticks: { 
-                  stepSize: 1,
-                  callback: function(value) {
-                    const labels = {
-                      '-2': 'Ужасно',
-                      '-1': 'Плохо',
-                      '0': 'Нормально', 
-                      '1': 'Хорошо',
-                      '2': 'Отлично'
-                    };
-                    return labels[value.toString()] || value;
-                  }
-                }
-              } 
+            interaction: {
+              intersect: false,
+              mode: 'index'
             },
             plugins: {
+              legend: {
+                labels: {
+                  usePointStyle: true,
+                  pointStyle: 'circle',
+                  padding: 20,
+                  font: { size: 12, weight: 'bold' }
+                }
+              },
               tooltip: {
                 callbacks: {
+                  title: function(context) {
+                    const entry = sortedEntries[context[0].dataIndex];
+                    return entry.date;
+                  },
                   afterLabel: function(context) {
                     const entry = sortedEntries[context.dataIndex];
                     if (context.dataset.label === 'Сон') return 'Сон: ' + window.sleepToText(entry.sleep);
@@ -478,6 +519,37 @@
                   }
                 }
               }
+            },
+            scales: { 
+              x: {
+                grid: { display: false }
+              },
+              y: { 
+                min: -2.2, 
+                max: 2.2,
+                grid: { 
+                  display: true,
+                  color: function(context) {
+                    return context.tick.value === 0 ? '#64748b' : '#e2e8f0';
+                  },
+                  lineWidth: function(context) {
+                    return context.tick.value === 0 ? 2 : 1;
+                  }
+                },
+                ticks: { 
+                  stepSize: 1,
+                  callback: function(value) {
+                    const emojiLabels = {
+                      '-2': '👎👎',
+                      '-1': '👎',
+                      '0': '👌', 
+                      '1': '👍',
+                      '2': '👍👍'
+                    };
+                    return emojiLabels[value.toString()] || '';
+                  }
+                }
+              } 
             }
           }
         });
@@ -503,22 +575,39 @@
                 e.activity === 2 ? '#3b82f6' :
                 e.activity === 3 ? '#f59e0b' : '#ef4444'
               ),
-              borderColor: sortedEntries.map(e =>
-                e.activity === 0 ? '#64748b' :
-                e.activity === 1 ? '#059669' :
-                e.activity === 2 ? '#2563eb' :
-                e.activity === 3 ? '#d97706' : '#dc2626'
-              ),
-              borderWidth: 1
+              borderRadius: 2,
+              borderSkipped: false,
+              borderWidth: 0,
+              barPercentage: 0.7,
+              categoryPercentage: 0.8
             }]
           },
           options: { 
             responsive: true, 
             maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  title: function(context) {
+                    const entry = sortedEntries[context[0].dataIndex];
+                    return entry.date;
+                  },
+                  label: function(context) {
+                    const entry = sortedEntries[context.dataIndex];
+                    return 'Активность: ' + window.activityToText(entry.activity);
+                  }
+                }
+              }
+            },
             scales: { 
+              x: {
+                grid: { display: false }
+              },
               y: { 
                 min: 0, 
                 max: 4, 
+                grid: { display: true, color: '#e2e8f0' },
                 ticks: { 
                   stepSize: 1,
                   callback: function(value) {
@@ -529,20 +618,10 @@
                       '3': 'Интенсивная',
                       '4': 'Максимальная'
                     };
-                    return labels[value.toString()] || value;
+                    return labels[value.toString()] || '';
                   }
                 }
               } 
-            },
-            plugins: {
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    const entry = sortedEntries[context.dataIndex];
-                    return 'Активность: ' + window.activityToText(entry.activity);
-                  }
-                }
-              }
             }
           }
         });
@@ -563,20 +642,21 @@
         let shapeColor = '';
         
         if (calorieGoal === 'lose') {
-          targetCalories = Math.round(calorieNorm * 0.8);
+          targetCalories = Math.round(calorieNorm * 0.75); // Снижено с 0.8 до 0.75
           goalText = 'Снижение веса';
           shapeColor = 'rgba(59, 130, 246, 0.2)';
         } else if (calorieGoal === 'gain') {
-          targetCalories = Math.round(calorieNorm * 1.2);
+          targetCalories = Math.round(calorieNorm * 1.15); // Снижено с 1.2 до 1.15
           goalText = 'Набор массы';
           shapeColor = 'rgba(245, 158, 11, 0.2)';
         } else {
+          targetCalories = Math.round(calorieNorm * 0.95); // Снижено с 1.0 до 0.95
           goalText = 'Поддержание веса';
           shapeColor = 'rgba(16, 185, 129, 0.2)';
         }
         
-        const normMin = targetCalories * 0.9;
-        const normMax = targetCalories * 1.1;
+        const normMin = targetCalories * 0.85; // Сузили диапазон
+        const normMax = targetCalories * 1.15;
         
         const shape = [{
           type: 'rect', xref: 'paper', yref: 'y',
@@ -601,8 +681,52 @@
             text: '🍎 Питание и калории<br><sub style="color: #666; font-size: 12px;">Цель: ' + goalText + ' (' + targetCalories + ' ккал/день)</sub>'
           },
           shapes: shape,
-          xaxis: { title: 'День' },
-          yaxis: { title: 'ккал' },
+          xaxis: { title: 'День', showgrid: false },
+          yaxis: { title: 'ккал', showgrid: true },
+          margin: { t: 60, b: 60, l: 60, r: 20 },
+          showlegend: false,
+          annotations: [{
+            x: 0.02,
+            y: 0.98,
+            xref: 'paper',
+            yref: 'paper',
+            text: '🎯 Целевая зона: ' + normMin.toFixed(0) + '-' + normMax.toFixed(0) + ' ккал',
+            showarrow: false,
+            font: { size: 11, color: '#666' },
+            bgcolor: 'rgba(255,255,255,0.8)',
+            bordercolor: '#ddd',
+            borderwidth: 1
+          }]
+        };
+
+        Plotly.react(refCalories.current, [trace], layout, { displayModeBar: false, responsive: true });
+      };
+        
+        const shape = [{
+          type: 'rect', xref: 'paper', yref: 'y',
+          x0: 0, x1: 1, y0: normMin, y1: normMax,
+          fillcolor: shapeColor, line: { width: 0 }
+        }];
+
+        const trace = {
+          x: dates, y: centers, mode: 'markers',
+          marker: { color: colors, size: 12 },
+          error_y: { type: 'data', array: errUp, arrayminus: errDn, thickness: 2, width: 6 },
+          customdata: sortedEntries.map(e => [e.vege, e.coffee, e.alco]),
+          hovertemplate:
+            '<b>%{x}</b><br>' +
+            'Калории: %{y-error_y.arrayminus:.0f}–%{y+error_y.array:.0f} ккал<br>' +
+            'Овощи: %{customdata[0]}%<br>' +
+            '☕ %{customdata[1]}  🍺 %{customdata[2]}<extra></extra>'
+        };
+
+        const layout = {
+          title: { 
+            text: '🍎 Питание и калории<br><sub style="color: #666; font-size: 12px;">Цель: ' + goalText + ' (' + targetCalories + ' ккал/день)</sub>'
+          },
+          shapes: shape,
+          xaxis: { title: 'День', showgrid: false },
+          yaxis: { title: 'ккал', showgrid: true },
           margin: { t: 60, b: 60, l: 60, r: 20 },
           showlegend: false,
           annotations: [{
@@ -644,7 +768,15 @@
               className="w-full px-6 py-4 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-slate-100 text-left hover:from-slate-100 hover:to-blue-100 transition-colors"
             >
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-slate-700">🎲 Управление данными</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-slate-700">🎲 Управление данными</h3>
+                  <div className="group relative">
+                    <span className="text-slate-400 hover:text-slate-600 cursor-help">ℹ️</span>
+                    <div className="absolute bottom-6 left-0 hidden group-hover:block bg-slate-800 text-white text-xs rounded-lg p-2 w-64 z-10">
+                      Инструменты для загрузки тестовых данных и управления записями. Используйте для демонстрации возможностей системы.
+                    </div>
+                  </div>
+                </div>
                 <span className={`text-slate-500 transition-transform ${showDataPanel ? 'rotate-180' : ''}`}>
                   ▼
                 </span>
@@ -686,22 +818,30 @@
           {weeklySummary && (
             <section className="bg-white card overflow-hidden">
               <div className="card-header bg-gradient-to-r from-blue-500 to-indigo-500 px-6 py-4">
-                <h3 className="text-xl font-bold text-white flex items-center">
-                  📊 Сводка за {weeklySummary.days} дней
-                  <span className="ml-auto text-blue-100 text-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-bold text-white">📊 Сводка за {weeklySummary.days} дней</h3>
+                    <div className="group relative">
+                      <span className="text-blue-100 hover:text-white cursor-help">ℹ️</span>
+                      <div className="absolute bottom-6 left-0 hidden group-hover:block bg-slate-800 text-white text-xs rounded-lg p-2 w-64 z-10">
+                        Средние показатели здоровья за последнюю неделю с персональными рекомендациями от ИИ на основе ваших записей.
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-blue-100 text-sm">
                     {new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
                   </span>
-                </h3>
+                </div>
               </div>
               
               <div className="p-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
                   <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.sleep, 'sleep')}`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-2xl">😴</span>
                       <span className="text-xs font-medium opacity-75">СОН</span>
                     </div>
-                    <div className="font-bold text-lg">{window.getMetricText(weeklySummary.sleep, 'sleep')}</div>
+                    <div className="font-bold text-lg">{window.sleepToText(Math.round(weeklySummary.sleep))}</div>
                     <div className="text-xs opacity-75 mt-1">{weeklySummary.sleep.toFixed(1)} балла</div>
                   </div>
 
@@ -710,7 +850,7 @@
                       <span className="text-2xl">😊</span>
                       <span className="text-xs font-medium opacity-75">НАСТРОЕНИЕ</span>
                     </div>
-                    <div className="font-bold text-lg">{window.getMetricText(weeklySummary.mood, 'mood')}</div>
+                    <div className="font-bold text-lg">{window.moodToText(Math.round(weeklySummary.mood))}</div>
                     <div className="text-xs opacity-75 mt-1">{weeklySummary.mood.toFixed(1)} балла</div>
                   </div>
 
@@ -719,7 +859,7 @@
                       <span className="text-2xl">❤️</span>
                       <span className="text-xs font-medium opacity-75">ЗДОРОВЬЕ</span>
                     </div>
-                    <div className="font-bold text-lg">{window.getMetricText(weeklySummary.health, 'health')}</div>
+                    <div className="font-bold text-lg">{window.healthToText(Math.round(weeklySummary.health))}</div>
                     <div className="text-xs opacity-75 mt-1">{weeklySummary.health.toFixed(1)} балла</div>
                   </div>
 
@@ -728,8 +868,29 @@
                       <span className="text-2xl">🏃</span>
                       <span className="text-xs font-medium opacity-75">АКТИВНОСТЬ</span>
                     </div>
-                    <div className="font-bold text-lg">{window.getMetricText(weeklySummary.activity, 'activity')}</div>
+                    <div className="font-bold text-lg">{window.activityToText(Math.round(weeklySummary.activity))}</div>
                     <div className="text-xs opacity-75 mt-1">{weeklySummary.activity.toFixed(1)} балла</div>
+                  </div>
+                  
+                  <div className={`p-4 rounded-xl border transition-all hover:shadow-sm ${getMetricColor(weeklySummary.vege, 'vege')}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-2xl">🥗</span>
+                      <span className="text-xs font-medium opacity-75">ОВОЩИ</span>
+                    </div>
+                    <div className="font-bold text-lg">{weeklySummary.vege}%</div>
+                    <div className="text-xs opacity-75 mt-1">в рационе</div>
+                  </div>
+                  
+                  <div className="p-4 rounded-xl border transition-all hover:shadow-sm bg-slate-50 border-slate-200 text-slate-600">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex space-x-1">
+                        <span className="text-lg">☕</span>
+                        <span className="text-lg">🍺</span>
+                      </div>
+                      <span className="text-xs font-medium opacity-75">НАПИТКИ</span>
+                    </div>
+                    <div className="font-bold text-sm">☕ {weeklySummary.coffee.toFixed(1)}</div>
+                    <div className="font-bold text-sm">🍺 {weeklySummary.alco.toFixed(1)}</div>
                   </div>
                 </div>
 
@@ -737,7 +898,7 @@
                   <div className="flex items-start space-x-3">
                     <span className="text-2xl">💡</span>
                     <div>
-                      <h4 className="font-semibold text-blue-800 mb-1">Персональные рекомендации</h4>
+                      <h4 className="font-semibold text-blue-800 mb-1">Персональные рекомендации ИИ</h4>
                       <p className="text-blue-700 text-sm leading-relaxed">{weeklyAdvice}</p>
                     </div>
                   </div>
@@ -749,7 +910,15 @@
           {/* Форма добавления записи */}
           <section className="bg-white card overflow-hidden">
             <div className="card-header bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-4">
-              <h3 className="text-xl font-bold text-white">✍️ Добавить новую запись</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xl font-bold text-white">✍️ Добавить новую запись</h3>
+                <div className="group relative">
+                  <span className="text-emerald-100 hover:text-white cursor-help">ℹ️</span>
+                  <div className="absolute bottom-6 left-0 hidden group-hover:block bg-slate-800 text-white text-xs rounded-lg p-2 w-64 z-10">
+                    Опишите свой день в свободной форме. ИИ автоматически проанализирует текст и извлечет показатели здоровья.
+                  </div>
+                </div>
+              </div>
             </div>
             
             <div className="p-6">
@@ -880,25 +1049,48 @@
           {/* Графики */}
           {entries.length > 0 && (
             <>
-              <div className="grid lg:grid-cols-2 gap-6">
-                <div className="bg-white card">
-                  <div className="p-6">
-                    <h3 className="font-semibold mb-4 text-slate-800">📈 Самочувствие по дням</h3>
-                    <div className="chart-container"><canvas ref={refHealth}></canvas></div>
+              <div className="bg-white card">
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <h3 className="font-semibold text-slate-800">📈 Самочувствие по дням</h3>
+                    <div className="group relative">
+                      <span className="text-slate-400 hover:text-slate-600 cursor-help">ℹ️</span>
+                      <div className="absolute bottom-6 left-0 hidden group-hover:block bg-slate-800 text-white text-xs rounded-lg p-2 w-64 z-10">
+                        Отслеживайте качество сна, настроение и общее самочувствие. Нажмите на название показателя в легенде, чтобы скрыть/показать его на графике.
+                      </div>
+                    </div>
                   </div>
+                  <div className="chart-container"><canvas ref={refHealth}></canvas></div>
                 </div>
-                <div className="bg-white card">
-                  <div className="p-6">
-                    <h3 className="font-semibold mb-4 text-slate-800">🏃 Уровень активности</h3>
-                    <div className="chart-container"><canvas ref={refActivity}></canvas></div>
+              </div>
+
+              <div className="bg-white card">
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <h3 className="font-semibold text-slate-800">🏃 Уровень активности</h3>
+                    <div className="group relative">
+                      <span className="text-slate-400 hover:text-slate-600 cursor-help">ℹ️</span>
+                      <div className="absolute bottom-6 left-0 hidden group-hover:block bg-slate-800 text-white text-xs rounded-lg p-2 w-64 z-10">
+                        Мониторинг физической активности от полного отдыха до максимальных нагрузок. Помогает контролировать баланс между отдыхом и тренировками.
+                      </div>
+                    </div>
                   </div>
+                  <div className="chart-container"><canvas ref={refActivity}></canvas></div>
                 </div>
               </div>
 
               <div className="bg-white card">
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-semibold text-slate-800">🍎 Питание и калории</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-slate-800">🍎 Питание и калории</h3>
+                      <div className="group relative">
+                        <span className="text-slate-400 hover:text-slate-600 cursor-help">ℹ️</span>
+                        <div className="absolute bottom-6 left-0 hidden group-hover:block bg-slate-800 text-white text-xs rounded-lg p-2 w-64 z-10">
+                          Анализ калорийности рациона с учетом доли овощей. Цвет точек показывает качество питания: зеленый - много овощей, красный - мало.
+                        </div>
+                      </div>
+                    </div>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setCalorieGoal('maintain')}
@@ -948,7 +1140,15 @@
           {/* История записей */}
           <section className="bg-white card">
             <div className="p-6">
-              <h3 className="font-semibold mb-4 text-slate-800">📚 История записей</h3>
+              <div className="flex items-center gap-2 mb-4">
+                <h3 className="font-semibold text-slate-800">📚 История записей</h3>
+                <div className="group relative">
+                  <span className="text-slate-400 hover:text-slate-600 cursor-help">ℹ️</span>
+                  <div className="absolute bottom-6 left-0 hidden group-hover:block bg-slate-800 text-white text-xs rounded-lg p-2 w-64 z-10">
+                    Хронология ваших записей с кратким анализом каждого дня. Нажмите "Показать полный текст" для просмотра оригинального описания.
+                  </div>
+                </div>
+              </div>
               {entries.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-slate-500 italic text-lg">📝 Пока нет записей</p>
@@ -993,7 +1193,33 @@
                           {e.vege}%
                         </span>
                       </div>
-                      <p className="italic text-slate-600 bg-white p-3 rounded-lg border border-slate-100">"{e.summary}"</p>
+                      <div className="space-y-2">
+                        <p className="italic text-slate-600 bg-white p-3 rounded-lg border border-slate-100">"{e.summary}"</p>
+                        
+                        {expandedEntries.has(i) && e.original && (
+                          <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                            <p className="text-sm text-blue-800 font-medium mb-1">Полный текст записи:</p>
+                            <p className="text-sm text-blue-700">"{e.original}"</p>
+                          </div>
+                        )}
+                        
+                        {e.original && (
+                          <button
+                            onClick={() => {
+                              const newExpanded = new Set(expandedEntries);
+                              if (newExpanded.has(i)) {
+                                newExpanded.delete(i);
+                              } else {
+                                newExpanded.add(i);
+                              }
+                              setExpandedEntries(newExpanded);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+                          >
+                            {expandedEntries.has(i) ? '▲ Скрыть полный текст' : '▼ Показать полный текст'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                   {entries.length > 10 && (
